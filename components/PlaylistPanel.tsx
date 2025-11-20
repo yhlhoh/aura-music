@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Song } from '../types';
+import { CheckIcon, LinkIcon, PlusIcon, QueueIcon } from './Icons';
 
 interface PlaylistPanelProps {
   isOpen: boolean;
@@ -164,10 +165,7 @@ const PlaylistPanel: React.FC<PlaylistPanelProps> = ({
                         className="w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-90 text-white/50 hover:text-white hover:bg-white/10"
                         title="Add from URL"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-                             <line x1="12" y1="5" x2="12" y2="19"></line>
-                             <line x1="5" y1="12" x2="19" y2="12"></line>
-                        </svg>
+                        <PlusIcon className="w-5 h-5" />
                     </button>
                 )}
 
@@ -178,18 +176,9 @@ const PlaylistPanel: React.FC<PlaylistPanelProps> = ({
                     title="Edit List"
                 >
                     {isEditing ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
-                             <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
+                        <CheckIcon className="w-4 h-4" />
                     ) : (
-                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-                             <line x1="8" y1="6" x2="21" y2="6"></line>
-                             <line x1="8" y1="12" x2="21" y2="12"></line>
-                             <line x1="8" y1="18" x2="21" y2="18"></line>
-                             <line x1="3" y1="6" x2="3.01" y2="6"></line>
-                             <line x1="3" y1="12" x2="3.01" y2="12"></line>
-                             <line x1="3" y1="18" x2="3.01" y2="18"></line>
-                        </svg>
+                        <QueueIcon className="w-5 h-5" />
                     )}
                 </button>
             </div>
@@ -239,9 +228,7 @@ const PlaylistPanel: React.FC<PlaylistPanelProps> = ({
                                     style={{ backgroundColor: isSelected ? accentColor : 'transparent' }}
                                     >
                                         {isSelected && (
-                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3 text-white">
-                                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                            </svg>
+                                            <CheckIcon className="w-3 h-3 text-white" />
                                         )}
                                     </div>
                                 )}
@@ -314,9 +301,7 @@ const PlaylistPanel: React.FC<PlaylistPanelProps> = ({
                 {/* Content */}
                 <div className="p-6 flex flex-col items-center text-center">
                     <div className="w-14 h-14 rounded-full bg-blue-500/20 flex items-center justify-center mb-4 text-blue-400">
-                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-7 h-7">
-                            <path fillRule="evenodd" d="M19.902 4.098a3.75 3.75 0 00-5.304 0l-4.5 4.5a3.75 3.75 0 001.035 6.037.75.75 0 01-.646 1.353 5.25 5.25 0 01-1.449-8.45l4.5-4.5a5.25 5.25 0 117.424 7.424l-1.757 1.757a.75.75 0 11-1.06-1.06l1.757-1.757a3.75 3.75 0 000-5.304zm-7.389 4.267a.75.75 0 011-.353 5.25 5.25 0 011.449 8.45l-4.5 4.5a5.25 5.25 0 11-7.424-7.424l1.757-1.757a.75.75 0 111.06 1.06l-1.757 1.757a3.75 3.75 0 105.304 5.304l4.5-4.5a3.75 3.75 0 00-1.035-6.037.75.75 0 01-.354-1z" clipRule="evenodd" />
-                        </svg>
+                         <LinkIcon className="w-7 h-7" />
                     </div>
 
                     <h3 className="text-xl font-bold text-white tracking-tight">Import Music</h3>

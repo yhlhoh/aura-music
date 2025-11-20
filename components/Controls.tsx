@@ -1,6 +1,23 @@
 import React, { useState, useRef, useEffect } from "react";
 import { formatTime } from "../services/utils";
 import Visualizer from "./Visualizer";
+import {
+  LoopIcon,
+  LoopOneIcon,
+  ShuffleIcon,
+  VolumeHighFilledIcon,
+  VolumeHighIcon,
+  VolumeLowFilledIcon,
+  VolumeLowIcon,
+  VolumeMuteFilledIcon,
+  VolumeMuteIcon,
+  PauseIcon,
+  PlayIcon,
+  PrevIcon,
+  NextIcon,
+  LikeIcon,
+  QueueIcon,
+} from "./Icons";
 import { PlayMode } from "../types";
 
 interface ControlsProps {
@@ -71,21 +88,7 @@ const Controls: React.FC<ControlsProps> = ({
       case PlayMode.LOOP_ONE:
         return (
           <div className="relative">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className={iconClass}
-            >
-              <path d="M17 2l4 4-4 4" />
-              <path d="M3 11v-1a4 4 0 014-4h14" />
-              <path d="M7 22l-4-4 4-4" />
-              <path d="M21 13v1a4 4 0 01-4 4H3" />
-            </svg>
+            <LoopOneIcon className={iconClass} />
             <span className="absolute -top-1 -right-1 text-[8px] font-bold bg-white text-black rounded-[2px] px-0.5 leading-none">
               1
             </span>
@@ -93,42 +96,33 @@ const Controls: React.FC<ControlsProps> = ({
         );
       case PlayMode.SHUFFLE:
         return (
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={iconClass}
-          >
-            <path d="M16 3h5v5" />
-            <path d="M4 20L21 3" />
-            <path d="M21 16v5h-5" />
-            <path d="M15 15l6 6" />
-            <path d="M4 4l5 5" />
-          </svg>
+          <ShuffleIcon className={iconClass} />
         );
       default: // LOOP_ALL
         return (
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={iconClass}
-          >
-            <path d="M17 2l4 4-4 4" />
-            <path d="M3 11v-1a4 4 0 014-4h14" />
-            <path d="M7 22l-4-4 4-4" />
-            <path d="M21 13v1a4 4 0 01-4 4H3" />
-          </svg>
+          <LoopIcon className={iconClass} />
         );
     }
+  };
+
+  const getVolumeButtonIcon = () => {
+    if (volume === 0) {
+      return <VolumeMuteIcon className="w-5 h-5" />;
+    }
+    if (volume < 0.5) {
+      return <VolumeLowIcon className="w-5 h-5" />;
+    }
+    return <VolumeHighIcon className="w-5 h-5" />;
+  };
+
+  const getVolumePopupIcon = () => {
+    if (volume === 0) {
+      return <VolumeMuteFilledIcon className="w-4 h-4" />;
+    }
+    if (volume < 0.5) {
+      return <VolumeLowFilledIcon className="w-4 h-4" />;
+    }
+    return <VolumeHighFilledIcon className="w-4 h-4" />;
   };
 
   return (
@@ -205,51 +199,7 @@ const Controls: React.FC<ControlsProps> = ({
               }`}
               title="Volume"
             >
-              {volume === 0 ? (
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="w-5 h-5"
-                >
-                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                  <line x1="23" y1="9" x2="17" y2="15" />
-                  <line x1="17" y1="9" x2="23" y2="15" />
-                </svg>
-              ) : volume < 0.5 ? (
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="w-5 h-5"
-                >
-                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-                </svg>
-              ) : (
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="w-5 h-5"
-                >
-                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-                </svg>
-              )}
+              {getVolumeButtonIcon()}
             </button>
 
             {/* Volume Popup (iOS 18 Style) */}
@@ -281,40 +231,7 @@ const Controls: React.FC<ControlsProps> = ({
 
                   {/* Icon Overlay (Mix Blend Mode) */}
                   <div className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-none text-white mix-blend-difference">
-                    {volume === 0 ? (
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                        className="w-4 h-4"
-                      >
-                        <path
-                          d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    ) : volume < 0.5 ? (
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                        className="w-4 h-4"
-                      >
-                        <path d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 0 1 0 7.07" />
-                      </svg>
-                    ) : (
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                        className="w-4 h-4"
-                      >
-                        <path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
-                      </svg>
-                    )}
+                    {getVolumePopupIcon()}
                   </div>
                 </div>
               </div>
@@ -327,9 +244,7 @@ const Controls: React.FC<ControlsProps> = ({
             className="text-white hover:text-white/70 transition-colors active:scale-90 duration-200"
             aria-label="Previous"
           >
-            <svg viewBox="0 0 24 24" fill="currentColor" className="w-9 h-9">
-              <path d="M19,6c0-0.88-0.96-1.42-1.72-0.98L8.7,10.78C8.08,11.14,7.7,11.8,7.7,12.5s0.38,1.36,1,1.72l8.58,5.76 c0.76,0.44,1.72-0.1,1.72-0.98V6z M6,6C5.45,6,5,6.45,5,7v10c0,0.55,0.45,1,1,1s1-0.45,1-1V7C7,6.45,6.55,6,6,6z" />
-            </svg>
+            <PrevIcon className="w-9 h-9" />
           </button>
 
           {/* 4. Play/Pause (Center) */}
@@ -339,27 +254,13 @@ const Controls: React.FC<ControlsProps> = ({
           >
             <div className="relative w-6 h-6">
               {/* Pause Icon */}
-              <svg
-                viewBox="0 0 24 24"
-                fill="currentColor"
+              <PauseIcon
                 className={`absolute inset-0 w-full h-full transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${isPlaying ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-50 -rotate-90"}`}
-              >
-                <path d="M8 5C7.4 5 7 5.4 7 6V18C7 18.6 7.4 19 8 19H10C10.6 19 11 18.6 11 18V6C11 5.4 10.6 5 10 5H8Z" />
-                <path d="M14 5C13.4 5 13 5.4 13 6V18C13 18.6 13.4 19 14 19H16C16.6 19 17 18.6 17 18V6C17 5.4 16.6 5 16 5H14Z" />
-              </svg>
+              />
 
-              {/* Play Icon - Rounded Triangle - Visually Centered */}
-              <svg
-                viewBox="0 0 24 24"
-                fill="currentColor"
+              <PlayIcon
                 className={`absolute inset-0 w-full h-full transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${!isPlaying ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-50 rotate-90"}`}
-              >
-                {/* Translate X by 1px to visually center the mass of the triangle */}
-                <path
-                  transform="translate(1, 0)"
-                  d="M7 6.8C7 5.2 8.8 4.3 10.1 5.1L18.5 10.6C19.7 11.4 19.7 13.1 18.5 13.9L10.1 19.4C8.8 20.2 7 19.3 7 17.7V6.8Z"
-                />
-              </svg>
+              />
             </div>
           </button>
 
@@ -369,9 +270,7 @@ const Controls: React.FC<ControlsProps> = ({
             className="text-white hover:text-white/70 transition-colors active:scale-90 duration-200"
             aria-label="Next"
           >
-            <svg viewBox="0 0 24 24" fill="currentColor" className="w-9 h-9">
-              <path d="M5,18c0,0.88,0.96,1.42,1.72,0.98l8.58-5.76C15.92,12.86,16.3,12.2,16.3,11.5s-0.38-1.36-1-1.72L6.72,4.02 C5.96,3.58,5,4.12,5,5V18z M18,18c0.55,0,1-0.45,1-1V7c0-0.55-0.45-1-1-1s-1,0.45-1,1v10C17,17.55,17.45,18,18,18z" />
-            </svg>
+            <NextIcon className="w-9 h-9" />
           </button>
 
           {/* 6. Like */}
@@ -382,18 +281,7 @@ const Controls: React.FC<ControlsProps> = ({
             }`}
             title="Like"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill={isLiked ? "currentColor" : "none"}
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="w-5 h-5"
-            >
-              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-            </svg>
+            <LikeIcon filled={isLiked} className="w-5 h-5" />
           </button>
 
           {/* 7. Playlist/Queue */}
@@ -402,23 +290,7 @@ const Controls: React.FC<ControlsProps> = ({
             className="p-2 rounded-full hover:bg-white/10 transition-colors text-white/60 hover:text-white"
             title="Queue"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="w-5 h-5"
-            >
-              <line x1="8" y1="6" x2="21" y2="6" />
-              <line x1="8" y1="12" x2="21" y2="12" />
-              <line x1="8" y1="18" x2="21" y2="18" />
-              <line x1="3" y1="6" x2="3.01" y2="6" />
-              <line x1="3" y1="12" x2="3.01" y2="12" />
-              <line x1="3" y1="18" x2="3.01" y2="18" />
-            </svg>
+            <QueueIcon className="w-5 h-5" />
           </button>
         </div>
       </div>

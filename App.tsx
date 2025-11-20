@@ -7,6 +7,7 @@ import LyricsView from "./components/LyricsView";
 import PlaylistPanel from "./components/PlaylistPanel";
 import { usePlaylist } from "./hooks/usePlaylist";
 import { usePlayer } from "./hooks/usePlayer";
+import { AuraLogo } from "./components/Icons";
 
 const App: React.FC = () => {
   const playlist = usePlaylist();
@@ -248,8 +249,7 @@ const App: React.FC = () => {
     </div>
   );
 
-  const fallbackWidth =
-    typeof window !== "undefined" ? window.innerWidth : 0;
+  const fallbackWidth = typeof window !== "undefined" ? window.innerWidth : 0;
   const effectivePaneWidth = paneWidth || fallbackWidth;
   const baseOffset = activePanel === "lyrics" ? -effectivePaneWidth : 0;
   const mobileTranslate = baseOffset + dragOffsetX;
@@ -286,8 +286,12 @@ const App: React.FC = () => {
 
         {/* Content (Animate in) */}
         <div className="relative z-10 w-full h-full px-6 flex justify-between items-center opacity-0 group-hover:opacity-100 translate-y-[-10px] group-hover:translate-y-0 transition-all duration-500 delay-75">
-          <div className="flex items-center gap-4">
-            <h1 className="text-white/90 font-bold tracking-wider text-sm uppercase">
+          <div className="flex items-center gap-3">
+            {/* Logo */}
+            <div className="w-8 h-8 rounded-[8px] shadow-lg shadow-purple-500/20 overflow-hidden">
+              <AuraLogo className="w-full h-full" />
+            </div>
+            <h1 className="text-white/90 font-bold tracking-wider text-sm uppercase hidden sm:block">
               Aura Music
             </h1>
           </div>
@@ -343,10 +347,16 @@ const App: React.FC = () => {
                 transform: `translateX(${mobileTranslate}px)`,
               }}
             >
-              <div className="flex-none h-full" style={{ width: effectivePaneWidth }}>
+              <div
+                className="flex-none h-full"
+                style={{ width: effectivePaneWidth }}
+              >
                 {controlsSection}
               </div>
-              <div className="flex-none h-full" style={{ width: effectivePaneWidth }}>
+              <div
+                className="flex-none h-full"
+                style={{ width: effectivePaneWidth }}
+              >
                 {lyricsSection}
               </div>
             </div>
