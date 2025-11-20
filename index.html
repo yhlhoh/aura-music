@@ -1,64 +1,86 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Aura Music</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/color-thief/2.3.2/color-thief.umd.js"></script>
-    <style>
-      body {
-        font-family: 'Inter', sans-serif;
-        background-color: #000;
-        overflow: hidden; /* Prevent scroll on body, handle in app */
-      }
-      
-      /* Custom Scrollbar for Lyrics */
-      .no-scrollbar::-webkit-scrollbar {
-        display: none;
-      }
-      .no-scrollbar {
-        -ms-overflow-style: none;
-        scrollbar-width: none;
-      }
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Aura Music</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+            rel="stylesheet"
+        />
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/color-thief/2.3.2/color-thief.umd.js"></script>
+        <style>
+            body {
+                font-family: "PingFang SC", "Inter", sans-serif;
+                background-color: #000;
+                overflow: hidden; /* Prevent scroll on body, handle in app */
+            }
 
-      /* Fluid Animation Keyframes */
-      @keyframes blob {
-        0% { transform: translate(0px, 0px) scale(1); }
-        25% { transform: translate(15vw, -10vh) scale(1.1); }
-        50% { transform: translate(-10vw, 15vh) scale(0.9); }
-        75% { transform: translate(5vw, -5vh) scale(1.05); }
-        100% { transform: translate(0px, 0px) scale(1); }
-      }
-      @keyframes spin-slow {
-        from { transform: rotate(0deg); }
-        to { transform: rotate(360deg); }
-      }
-      .animate-blob {
-        animation: blob 15s infinite cubic-bezier(0.4, 0, 0.2, 1);
-      }
-      .animate-spin-slow {
-        animation: spin-slow 30s linear infinite;
-      }
-      
-      /* Floating Animation for Lyrics */
-      @keyframes floatWord {
-        0%, 100% { transform: translateY(0); }
-        50% { transform: translateY(-4px); }
-      }
-      .animate-float {
-        animation: floatWord 3s ease-in-out infinite;
-      }
-      /* Stagger delays are handled in JS or via nth-child if needed, 
+            /* Custom Scrollbar for Lyrics */
+            .no-scrollbar::-webkit-scrollbar {
+                display: none;
+            }
+            .no-scrollbar {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+            }
+
+            /* Fluid Animation Keyframes */
+            @keyframes blob {
+                0% {
+                    transform: translate(0px, 0px) scale(1);
+                }
+                25% {
+                    transform: translate(15vw, -10vh) scale(1.1);
+                }
+                50% {
+                    transform: translate(-10vw, 15vh) scale(0.9);
+                }
+                75% {
+                    transform: translate(5vw, -5vh) scale(1.05);
+                }
+                100% {
+                    transform: translate(0px, 0px) scale(1);
+                }
+            }
+            @keyframes spin-slow {
+                from {
+                    transform: rotate(0deg);
+                }
+                to {
+                    transform: rotate(360deg);
+                }
+            }
+            .animate-blob {
+                animation: blob 15s infinite cubic-bezier(0.4, 0, 0.2, 1);
+            }
+            .animate-spin-slow {
+                animation: spin-slow 30s linear infinite;
+            }
+
+            /* Floating Animation for Lyrics */
+            @keyframes floatWord {
+                0%,
+                100% {
+                    transform: translateY(0);
+                }
+                50% {
+                    transform: translateY(-4px);
+                }
+            }
+            .animate-float {
+                animation: floatWord 3s ease-in-out infinite;
+            }
+            /* Stagger delays are handled in JS or via nth-child if needed,
          but randomizing start time in JS is better for organic feel */
-    </style>
-</head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
-  </body>
+        </style>
+    </head>
+    <body>
+        <div id="root"></div>
+        <script type="module" src="/index.tsx"></script>
+    </body>
 </html>

@@ -204,7 +204,7 @@ export const fetchNeteaseSong = async (songId: string) => {
 export const searchAndMatchLyrics = async (
   title: string,
   artist: string,
-): Promise<{ lrc: string; metadata: string[] } | null> => {
+): Promise<{ lrc: string; tLrc?: string; metadata: string[] } | null> => {
   try {
     const songs = await searchNetEase(`${title} ${artist}`, 5);
 
@@ -226,7 +226,7 @@ export const searchAndMatchLyrics = async (
 
 export const fetchLyricsById = async (
   songId: string,
-): Promise<{ lrc: string; metadata: string[] } | null> => {
+): Promise<{ lrc: string; tLrc?: string; metadata: string[] } | null> => {
   try {
     // 使用網易雲音樂 API 獲取歌詞
     const lyricUrl = `${NETEASECLOUD_API_BASE}/lyric/new?id=${songId}`;
@@ -236,16 +236,23 @@ export const fetchLyricsById = async (
     const lrc = lyricData.lrc?.lyric;
     const tLrc = lyricData.tlyric?.lyric;
 
-    let finalLrc = yrc || lrc;
+    let originalLrc = yrc || lrc;
 
-    if (!finalLrc) return null;
+    if (!originalLrc) return null;
 
+    // Extract metadata from original lyrics
+    const { clean: cleanOriginal, metadata: originalMetadata } = extractMetadataLines(originalLrc);
+
+    // Extract metadata from translation if available
+    let cleanTranslation: string | undefined;
+    let translationMetadata: string[] = [];
     if (tLrc) {
-      finalLrc = finalLrc + "\n" + tLrc;
+      const result = extractMetadataLines(tLrc);
+      cleanTranslation = result.clean;
+      translationMetadata = result.metadata;
     }
 
-    const { clean, metadata } = extractMetadataLines(finalLrc);
-    const metadataSet = new Set(metadata);
+    const metadataSet = new Set([...originalMetadata, ...translationMetadata]);
     if (lyricData.lyricUser?.nickname) {
       metadataSet.add(`歌词贡献者: ${lyricData.lyricUser.nickname}`);
     }
@@ -254,7 +261,8 @@ export const fetchLyricsById = async (
     }
 
     return {
-      lrc: clean || finalLrc,
+      lrc: cleanOriginal || originalLrc,
+      tLrc: cleanTranslation,
       metadata: Array.from(metadataSet),
     };
   } catch (e) {

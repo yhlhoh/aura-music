@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Song } from '../types';
 
 interface PlaylistPanelProps {
@@ -299,14 +300,14 @@ const PlaylistPanel: React.FC<PlaylistPanelProps> = ({
         )}
     </div>
 
-    {/* iOS/MacOS Style Add Dialog (Improved) */}
-    {isAdding && (
+    {/* iOS/MacOS Style Add Dialog (Improved) - Using Portal */}
+    {isAdding && createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6" onClick={() => setIsAdding(false)}>
             {/* Backdrop */}
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300"></div>
-            
+
             {/* Modal */}
-            <div 
+            <div
                 className="relative w-full max-w-[360px] bg-black/20 backdrop-blur-[80px] saturate-150 border border-white/10 rounded-[28px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 scale-100 ring-1 ring-white/5"
                 onClick={(e) => e.stopPropagation()}
             >
@@ -317,14 +318,14 @@ const PlaylistPanel: React.FC<PlaylistPanelProps> = ({
                             <path fillRule="evenodd" d="M19.902 4.098a3.75 3.75 0 00-5.304 0l-4.5 4.5a3.75 3.75 0 001.035 6.037.75.75 0 01-.646 1.353 5.25 5.25 0 01-1.449-8.45l4.5-4.5a5.25 5.25 0 117.424 7.424l-1.757 1.757a.75.75 0 11-1.06-1.06l1.757-1.757a3.75 3.75 0 000-5.304zm-7.389 4.267a.75.75 0 011-.353 5.25 5.25 0 011.449 8.45l-4.5 4.5a5.25 5.25 0 11-7.424-7.424l1.757-1.757a.75.75 0 111.06 1.06l-1.757 1.757a3.75 3.75 0 105.304 5.304l4.5-4.5a3.75 3.75 0 00-1.035-6.037.75.75 0 01-.354-1z" clipRule="evenodd" />
                         </svg>
                     </div>
-                    
+
                     <h3 className="text-xl font-bold text-white tracking-tight">Import Music</h3>
                     <p className="text-white/60 text-[15px] mt-2 leading-relaxed px-2">
                         Paste a <span className="text-white/90 font-medium">Netease Cloud Music</span> song or playlist link to add to queue.
                     </p>
-                    
-                    <input 
-                        type="text" 
+
+                    <input
+                        type="text"
                         value={importUrl}
                         onChange={(e) => setImportUrl(e.target.value)}
                         placeholder="https://music.163.com/..."
@@ -335,13 +336,13 @@ const PlaylistPanel: React.FC<PlaylistPanelProps> = ({
 
                 {/* Action Buttons (iOS Style) */}
                 <div className="grid grid-cols-2 border-t border-white/10 divide-x divide-white/10 bg-white/5">
-                    <button 
+                    <button
                         onClick={() => setIsAdding(false)}
                         className="py-4 text-[17px] text-white/60 font-medium hover:bg-white/5 transition-colors active:bg-white/10"
                     >
                         Cancel
                     </button>
-                    <button 
+                    <button
                         onClick={handleImport}
                         className="py-4 text-[17px] text-blue-400 font-semibold hover:bg-white/5 transition-colors active:bg-white/10"
                     >
@@ -349,7 +350,8 @@ const PlaylistPanel: React.FC<PlaylistPanelProps> = ({
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     )}
     </>
   );

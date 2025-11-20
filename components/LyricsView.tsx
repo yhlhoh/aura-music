@@ -46,8 +46,21 @@ const LyricsView: React.FC<LyricsViewProps> = ({
 
   const [isUserScrolling, setIsUserScrolling] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [isMobile, setIsMobile] = useState(false);
 
   const RESUME_DELAY_MS = 3000;
+
+  // Detect mobile layout
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const query = window.matchMedia("(max-width: 1024px)");
+    const updateLayout = (event: MediaQueryListEvent | MediaQueryList) => {
+      setIsMobile(event.matches);
+    };
+    updateLayout(query);
+    query.addEventListener("change", updateLayout);
+    return () => query.removeEventListener("change", updateLayout);
+  }, []);
 
   // -------------------------------------------------------------------------
   // Active Index Logic
@@ -174,8 +187,8 @@ const LyricsView: React.FC<LyricsViewProps> = ({
             index === activeIndex ? 1 : sState.visualState ? 0.55 : 0.25;
           const opacity = Math.min(1, baseOpacity * fadeMultiplier);
 
-          // Blur: 0 at center, increasing at edges
-          const blur = sState.visualState ? 0 : 4 * Math.pow(normDist, 1.5);
+          // Blur: 0 at center, increasing at edges (disabled on mobile for readability)
+          const blur = isMobile ? 0 : (sState.visualState ? 0 : 4 * Math.pow(normDist, 1.5));
 
           // Unified Matrix3D Application
           // Combines Scaling (sx, sy) and Translation (ty = -currentY)
@@ -194,7 +207,7 @@ const LyricsView: React.FC<LyricsViewProps> = ({
     lastTimeRef.current = performance.now();
     animationRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animationRef.current);
-  }, [lyrics, activeIndex]);
+  }, [lyrics, activeIndex, isMobile]);
 
   // -------------------------------------------------------------------------
   // Interaction Handlers
@@ -244,7 +257,7 @@ const LyricsView: React.FC<LyricsViewProps> = ({
 
   if (!lyrics.length) {
     return (
-      <div className="h-[60vh] flex flex-col items-center justify-center text-white/40 select-none">
+      <div className="h-[85vh] lg:h-[60vh] flex flex-col items-center justify-center text-white/40 select-none">
         {matchStatus === "matching" ? (
           <div className="animate-pulse">Syncing Lyrics...</div>
         ) : (
@@ -264,7 +277,7 @@ const LyricsView: React.FC<LyricsViewProps> = ({
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      className="relative h-[60vh] w-full overflow-hidden cursor-grab active:cursor-grabbing touch-none select-none"
+      className="relative h-[85vh] lg:h-[60vh] w-full overflow-hidden cursor-grab active:cursor-grabbing touch-none select-none"
       style={{
         maskImage:
           "linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%)",
