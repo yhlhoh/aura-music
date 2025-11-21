@@ -1,7 +1,8 @@
-import React, { useRef, useEffect, useState, useLayoutEffect } from "react";
+
+import React, { useRef, useEffect, useState, useLayoutEffect, useCallback } from "react";
 import { LyricLine as LyricLineType } from "../types";
-import LyricLine, { LyricLineHandle } from "./LyricLine";
-import { SpringSystem, POS_Y_SPRING, SCALE_SPRING } from "../services/springSystem";
+import LyricLine, { LineMotionPlan, SharedMotionState } from "./LyricLine";
+import { SpringSystem, POS_Y_SPRING } from "../services/springSystem";
 
 // -------------------------------------------------------------------------
 // Main Lyrics View (No Virtualization for smoothness)
@@ -26,11 +27,21 @@ const LyricsView: React.FC<LyricsViewProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
-  const lineRefs = useRef<Map<number, LyricLineHandle>>(new Map());
+  const lineRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const motionPlansRef = useRef<LineMotionPlan[]>([]);
+  const [planVersion, setPlanVersion] = useState(0);
+  const impulseCounterRef = useRef(0);
+  const sharedMotionRef = useRef<SharedMotionState>({
+    targetPosY: 0,
+    activePoint: 0,
+    visualState: false,
+    isMobile: false,
+  });
 
   // -------------------------------------------------------------------------
   // Physics State
   // -------------------------------------------------------------------------
+  // Used ONLY for drag/touch interactions now. Auto-scroll bypasses this.
   const springSystem = useRef(new SpringSystem({ y: 0 }));
   const animationRef = useRef(0);
   const lastTimeRef = useRef(0);
@@ -46,12 +57,38 @@ const LyricsView: React.FC<LyricsViewProps> = ({
     visualState: false,
   });
 
-  const [isUserScrolling, setIsUserScrolling] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [isMobile, setIsMobile] = useState(false);
   const hasTranslation = lyrics.some((line) => line.translation);
 
   const RESUME_DELAY_MS = 3000;
+  type ImpulseDescriptor = Omit<LineMotionPlan["impulse"], "id">;
+
+  const createImpulseDescriptor = (
+    relativeIndex: number
+  ): ImpulseDescriptor | undefined => {
+    // Past lines
+    if (relativeIndex < 0) {
+      const distance = Math.min(Math.abs(relativeIndex), 5);
+      return {
+        offset: -40 - distance * 12,
+        delay: Math.max(0, (distance - 1) * 40),
+        config: { mass: 0.85, stiffness: 175, damping: 32, precision: 0.25 },
+      };
+    }
+
+    // Future lines - Unified block movement
+    // We remove strict staggering here. The physics in LyricLine will handle the elasticity.
+    if (relativeIndex >= 1) {
+      return {
+        offset: -12,
+        delay: 0, // No staggered delay, move together
+        config: { mass: 1, stiffness: 120, damping: 22, precision: 0.3 },
+      };
+    }
+
+    return undefined;
+  };
 
   // Detect mobile layout
   useEffect(() => {
@@ -65,6 +102,10 @@ const LyricsView: React.FC<LyricsViewProps> = ({
     return () => query.removeEventListener("change", updateLayout);
   }, []);
 
+  useEffect(() => {
+    sharedMotionRef.current.isMobile = isMobile;
+  }, [isMobile]);
+
   // -------------------------------------------------------------------------
   // Active Index Logic
   // -------------------------------------------------------------------------
@@ -72,7 +113,6 @@ const LyricsView: React.FC<LyricsViewProps> = ({
     if (!lyrics.length) return;
     let idx = -1;
 
-    // Simple linear search suitable for song lengths
     for (let i = 0; i < lyrics.length; i++) {
       if (currentTime >= lyrics[i].time) {
         const nextTime = lyrics[i + 1]?.time ?? Infinity;
@@ -107,55 +147,63 @@ const LyricsView: React.FC<LyricsViewProps> = ({
 
       if (isUserInteracting !== sState.visualState) {
         sState.visualState = isUserInteracting;
-        setIsUserScrolling(isUserInteracting);
+      }
+
+      // --- Calculate Target Scroll Position ---
+      let rawTargetScrollY = 0;
+
+      if (activeIndex !== -1) {
+        const activeEl = lineRefs.current.get(activeIndex);
+        const containerH =
+          containerRef.current?.clientHeight || window.innerHeight * 0.6;
+
+        if (activeEl) {
+          // We want active element ~20% down the screen
+          const desiredPos = containerH * 0.2;
+          rawTargetScrollY = activeEl.offsetTop - desiredPos;
+        }
       }
 
       // --- Physics Step ---
+      let finalScrollY = 0;
+
       if (isUserInteracting) {
-        // Momentum (Friction)
+        // When dragging, we rely entirely on the local spring system to track the finger
+        // and handle momentum throw.
         if (!sState.isDragging) {
+          // Momentum (Friction)
           if (Math.abs(sState.touchVelocity) > 10) {
             const newY = system.getCurrent("y") + sState.touchVelocity * dt;
             system.setValue("y", newY);
             sState.touchVelocity *= 0.92; // Friction
           }
         }
+        finalScrollY = system.getCurrent("y");
       } else {
-        // Auto Scroll Logic
-        let targetY = system.getCurrent("y");
+        // AUTO SCROLL:
+        // FIX: Do NOT use the spring system here. 
+        // Pass the RAW target directly to LyricLine.
+        // LyricLine has its own spring. If we spring here + spring there = double spring (lag).
+        finalScrollY = rawTargetScrollY;
 
-        if (activeIndex !== -1) {
-          // Get exact position from DOM
-          const activeEl = lineRefs.current.get(activeIndex);
-          const containerH =
-            containerRef.current?.clientHeight || window.innerHeight * 0.6;
-
-          if (activeEl) {
-            // Target Position: We want the active element to be at 30% of container height
-            const desiredPos = containerH * 0.3;
-            targetY = activeEl.offsetTop - desiredPos;
-          }
-        }
-
-        // Smooth Spring to Target
-        system.setTarget("y", targetY, POS_Y_SPRING);
+        // Sync the background system so if user grabs it, it doesn't jump
+        system.setValue("y", rawTargetScrollY);
       }
 
-      // Update Physics
-      system.update(dt);
-      const currentY = system.getCurrent("y");
+      // Update Shared State
+      // Note: Translation moves UP, so we negate scrollY
+      sharedMotionRef.current.targetPosY = -finalScrollY;
 
-      // --- Render Updates ---
-
+      // Calculate Active Point (center of highlight zone) in "Lyrics Content Space"
+      // If we are scrolled to 1000px, and the highlight zone is 200px down the screen,
+      // the "active point" in the document is at 1200px.
+      let activePointBase = finalScrollY;
       if (containerRef.current) {
-        const viewportHeight = containerRef.current.clientHeight;
-        const activePoint = currentY + viewportHeight * 0.3;
-
-        lineRefs.current.forEach((lineHandle) => {
-          if (!lineHandle) return;
-          lineHandle.update(dt, currentY, activePoint, isMobile, sState.visualState);
-        });
+        activePointBase += containerRef.current.clientHeight * 0.2;
       }
+      sharedMotionRef.current.activePoint = activePointBase;
+
+      sharedMotionRef.current.visualState = sState.visualState;
 
       animationRef.current = requestAnimationFrame(loop);
     };
@@ -165,6 +213,39 @@ const LyricsView: React.FC<LyricsViewProps> = ({
     return () => cancelAnimationFrame(animationRef.current);
   }, [lyrics, activeIndex, isMobile]);
 
+  useEffect(() => {
+    motionPlansRef.current = lyrics.map(
+      (_, idx) =>
+        motionPlansRef.current[idx] ?? {
+          version: 0,
+          relativeIndex: 0,
+        }
+    );
+    setPlanVersion((v) => v + 1);
+  }, [lyrics.length]);
+
+  useEffect(() => {
+    if (activeIndex === -1) return;
+    motionPlansRef.current = lyrics.map((_, idx) => {
+      const previous =
+        motionPlansRef.current[idx] ?? {
+          version: 0,
+          relativeIndex: 0,
+        };
+      const relativeIndex = idx - activeIndex;
+      const descriptor = createImpulseDescriptor(relativeIndex);
+      return {
+        version: previous.version + 1,
+        relativeIndex,
+        impulse: descriptor
+          ? { ...descriptor, id: ++impulseCounterRef.current }
+          : undefined,
+      };
+    });
+    setPlanVersion((v) => v + 1);
+  }, [activeIndex, lyrics]);
+
+
   // -------------------------------------------------------------------------
   // Interaction Handlers
   // -------------------------------------------------------------------------
@@ -173,36 +254,27 @@ const LyricsView: React.FC<LyricsViewProps> = ({
     scrollState.current.isDragging = true;
     scrollState.current.lastInteractionTime = performance.now();
     const touchY = e.touches[0].clientY;
-    const touchX = e.touches[0].clientX;
     scrollState.current.touchStartY = touchY;
     scrollState.current.touchLastY = touchY;
-    scrollState.current.touchStartX = touchX;
-    scrollState.current.touchLastX = touchX;
     scrollState.current.touchVelocity = 0;
 
-    // Reset spring to current position to take control
-    const cur = springSystem.current.getCurrent("y");
-    springSystem.current.setValue("y", cur);
+    // Important: Sync system to current visual position before taking over
+    // But since we bypass system in auto-mode, we might need to read where we are?
+    // Actually, the loop updates system.setValue('y', raw) constantly in auto mode, 
+    // so it's ready to be grabbed.
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     const currentY = e.touches[0].clientY;
-    const currentX = e.touches[0].clientX;
-    const dy = scrollState.current.touchLastY - currentY;
-    const absDx = Math.abs(currentX - scrollState.current.touchLastX);
-    const absDy = Math.abs(dy);
+    const dy = scrollState.current.touchLastY - currentY; // delta scroll
 
-    if (absDy > absDx) {
-      e.stopPropagation();
-    }
+    // Simple bounds check logic could go here, but springs handle it gracefully usually
+    const system = springSystem.current;
+    const newY = system.getCurrent("y") + dy;
+    system.setValue("y", newY);
 
     scrollState.current.touchLastY = currentY;
-    scrollState.current.touchLastX = currentX;
-
-    const newY = springSystem.current.getCurrent("y") + dy;
-    springSystem.current.setValue("y", newY);
-
-    scrollState.current.touchVelocity = dy * 60; // Simple velocity calc
+    scrollState.current.touchVelocity = dy * 60; // Simple velocity
     scrollState.current.lastInteractionTime = performance.now();
   };
 
@@ -214,11 +286,21 @@ const LyricsView: React.FC<LyricsViewProps> = ({
   const handleWheel = (e: React.WheelEvent) => {
     scrollState.current.lastInteractionTime = performance.now();
     const dy = e.deltaY;
-    const newY = springSystem.current.getCurrent("y") + dy;
-    springSystem.current.setValue("y", newY);
-
-    if (!scrollState.current.visualState) setIsUserScrolling(true);
+    const system = springSystem.current;
+    const newY = system.getCurrent("y") + dy;
+    system.setValue("y", newY);
   };
+
+  const registerLineRef = useCallback(
+    (index: number, node: HTMLDivElement | null) => {
+      if (node) {
+        lineRefs.current.set(index, node);
+      } else {
+        lineRefs.current.delete(index);
+      }
+    },
+    []
+  );
 
   // -------------------------------------------------------------------------
   // Render
@@ -260,25 +342,22 @@ const LyricsView: React.FC<LyricsViewProps> = ({
       <div
         ref={contentRef}
         className="absolute top-0 left-0 w-full px-4 md:pl-12 md:pr-12 will-change-transform"
-        style={{ paddingTop: "30vh", paddingBottom: "40vh" }}
+        style={{ paddingTop: "35vh", paddingBottom: "40vh" }}
       >
         {lyrics.map((line, i) => {
           return (
             <LyricLine
               key={i}
-              ref={(el) => {
-                if (el) lineRefs.current.set(i, el);
-                else lineRefs.current.delete(i);
-              }}
               index={i}
               line={line}
               isActive={i === activeIndex}
-              isUserScrolling={isUserScrolling}
-              distance={Math.abs(i - activeIndex)}
               onLineClick={(t) => onSeekRequest(t, true)}
               audioRef={audioRef}
               isMobile={isMobile}
-              scaleSpringConfig={SCALE_SPRING}
+              sharedMotion={sharedMotionRef}
+              motionPlanRef={motionPlansRef}
+              planVersion={planVersion}
+              registerLineRef={registerLineRef}
             />
           );
         })}

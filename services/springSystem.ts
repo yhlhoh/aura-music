@@ -1,3 +1,5 @@
+
+
 /**
  * Advanced Spring Physics System
  * Supports multiple properties (x, y, scale, etc.) simultaneously.
@@ -20,15 +22,15 @@ export const DEFAULT_SPRING: SpringConfig = {
 
 export const POS_Y_SPRING: SpringConfig = {
     mass: 0.9,
-    stiffness: 90,
-    damping: 15,
+    stiffness: 100,
+    damping: 20, // Critical ~19
     precision: 0.1
 };
 
 export const SCALE_SPRING: SpringConfig = {
     mass: 2,
     stiffness: 100,
-    damping: 25,
+    damping: 28, // Increased damping
     precision: 0.01
 };
 
@@ -37,6 +39,32 @@ export const SCALE_BG_SPRING: SpringConfig = {
     stiffness: 50,
     damping: 20,
     precision: 0.01
+};
+
+// --- Apple Music Style Physics Presets ---
+
+// Past lines: High stiffness to "throw" them out of view quickly without bouncing back
+export const PAST_SPRING: SpringConfig = {
+    mass: 0.8,
+    stiffness: 220, // Stiffer
+    damping: 40,    // Overdamped to prevent any return bounce
+    precision: 0.1
+};
+
+// Current line: Critically damped for fast arrival with minimal to no overshoot
+export const ACTIVE_SPRING: SpringConfig = {
+    mass: 1,
+    stiffness: 170, // Fast response
+    damping: 26,    // Critical damping (2*sqrt(170*1) ≈ 26.07). Zero bounce.
+    precision: 0.1
+};
+
+// Future lines: Tighter follower
+export const FUTURE_SPRING: SpringConfig = {
+    mass: 1.1,
+    stiffness: 100,
+    damping: 22,    // Critical damping (2*sqrt(100*1.1) ≈ 20.9). Slightly overdamped.
+    precision: 0.1
 };
 
 export class SpringSystem {
@@ -95,11 +123,12 @@ export class SpringSystem {
             const newPosition = current + newVelocity * dt;
 
             const precision = p.precision ?? 0.01;
-            const direction = target - current;
-            const wouldOvershoot = direction !== 0 && (target - newPosition) * direction <= 0;
+
+            // Removed overshoot check which caused the snapping effect
+            // We rely on critical/over-damping and low velocity threshold
             const isNearRest = Math.abs(newVelocity) < precision && Math.abs(newPosition - target) < precision;
 
-            if (wouldOvershoot || isNearRest) {
+            if (isNearRest) {
                 this.current[key] = target;
                 this.velocity[key] = 0;
             } else {
