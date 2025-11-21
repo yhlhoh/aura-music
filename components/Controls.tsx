@@ -26,7 +26,7 @@ interface ControlsProps {
   onPlayPause: () => void;
   currentTime: number;
   duration: number;
-  onSeek: (time: number) => void;
+  onSeek: (time: number, playImmediately?: boolean, defer?: boolean) => void;
   title: string;
   artist: string;
   audioRef: React.RefObject<HTMLAudioElement>;
@@ -72,6 +72,10 @@ const Controls: React.FC<ControlsProps> = ({
   const [showSettings, setShowSettings] = useState(false);
   const volumeContainerRef = useRef<HTMLDivElement>(null);
   const settingsContainerRef = useRef<HTMLDivElement>(null);
+
+  // Progress bar seeking state
+  const [isSeeking, setIsSeeking] = useState(false);
+  const [seekTime, setSeekTime] = useState(0);
 
   // Spring Animation for Cover
   const coverRef = useRef<HTMLDivElement>(null);
@@ -210,7 +214,7 @@ const Controls: React.FC<ControlsProps> = ({
       {/* Progress Bar */}
       <div className="w-full max-w-xl flex items-center gap-3 text-xs font-medium text-white/50 group/bar relative">
         <span className="w-10 text-right font-mono tracking-widest">
-          {formatTime(currentTime)}
+          {formatTime(isSeeking ? seekTime : currentTime)}
         </span>
 
         <div className="relative flex-1 h-8 flex items-center cursor-pointer group">
@@ -221,7 +225,7 @@ const Controls: React.FC<ControlsProps> = ({
           <div
             className="absolute left-0 h-[3px] rounded-full group-hover:h-[6px] transition-all duration-200 ease-out"
             style={{
-              width: `${(currentTime / (duration || 1)) * 100}%`,
+              width: `${((isSeeking ? seekTime : currentTime) / (duration || 1)) * 100}%`,
               backgroundColor: "rgba(255,255,255,0.9)",
             }}
           ></div>
@@ -231,8 +235,24 @@ const Controls: React.FC<ControlsProps> = ({
             type="range"
             min={0}
             max={duration || 0}
-            value={currentTime}
-            onChange={(e) => onSeek(parseFloat(e.target.value))}
+            value={isSeeking ? seekTime : currentTime}
+            onMouseDown={() => setIsSeeking(true)}
+            onTouchStart={() => setIsSeeking(true)}
+            onChange={(e) => {
+              const time = parseFloat(e.target.value);
+              setSeekTime(time);
+              onSeek(time, false, true); // Deferred seek
+            }}
+            onMouseUp={(e) => {
+              const time = parseFloat((e.target as HTMLInputElement).value);
+              onSeek(time, false, false); // Actual seek
+              setIsSeeking(false);
+            }}
+            onTouchEnd={(e) => {
+              const time = parseFloat((e.target as HTMLInputElement).value);
+              onSeek(time, false, false); // Actual seek
+              setIsSeeking(false);
+            }}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
           />
         </div>

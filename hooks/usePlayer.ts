@@ -37,6 +37,8 @@ export const usePlayer = ({
   const [playMode, setPlayMode] = useState<PlayMode>(PlayMode.LOOP_ALL);
   const [matchStatus, setMatchStatus] = useState<MatchStatus>("idle");
   const audioRef = useRef<HTMLAudioElement>(null);
+  const animationFrameRef = useRef<number>(0);
+  const isSeeking = useRef(false);
 
   const currentSong = queue[currentIndex] ?? null;
   const accentColor = currentSong?.colors?.[0] || "#a855f7";
@@ -102,24 +104,31 @@ export const usePlayer = ({
   }, [playState]);
 
   const handleSeek = useCallback(
-    (time: number, playImmediately: boolean = false) => {
+    (time: number, playImmediately: boolean = false, defer: boolean = false) => {
       if (!audioRef.current) return;
-      audioRef.current.currentTime = time;
-      setCurrentTime(time);
-      if (playImmediately) {
-        audioRef.current
-          .play()
-          .catch((err) => console.error("Play failed", err));
-        setPlayState(PlayState.PLAYING);
+
+      if (defer) {
+        // Only update visual state during drag, don't actually seek
+        isSeeking.current = true;
+        setCurrentTime(time);
+      } else {
+        // Actually perform the seek
+        audioRef.current.currentTime = time;
+        setCurrentTime(time);
+        isSeeking.current = false;
+        if (playImmediately) {
+          audioRef.current
+            .play()
+            .catch((err) => console.error("Play failed", err));
+          setPlayState(PlayState.PLAYING);
+        }
       }
     },
     [],
   );
 
   const handleTimeUpdate = useCallback(() => {
-    if (audioRef.current) {
-      setCurrentTime(audioRef.current.currentTime);
-    }
+    // No-op: Using requestAnimationFrame for smooth updates instead
   }, []);
 
   const handleLoadedMetadata = useCallback(() => {
@@ -385,6 +394,24 @@ export const usePlayer = ({
       }
     }
   }, [currentSong, playState, speed, pitch]);
+
+  // Smooth progress update using requestAnimationFrame
+  useEffect(() => {
+    const updateProgress = () => {
+      if (audioRef.current && !isSeeking.current && playState === PlayState.PLAYING) {
+        setCurrentTime(audioRef.current.currentTime);
+      }
+      animationFrameRef.current = requestAnimationFrame(updateProgress);
+    };
+
+    animationFrameRef.current = requestAnimationFrame(updateProgress);
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [playState]);
 
   return {
     audioRef,
