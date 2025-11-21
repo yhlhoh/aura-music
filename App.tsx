@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useToast } from "./hooks/useToast";
 import { PlayState, Song } from "./types";
 import FluidBackground from "./components/FluidBackground";
 import MobileFluidBackground from "./components/MobileFluidBackground";
@@ -13,6 +14,7 @@ import { usePlayer } from "./hooks/usePlayer";
 import { keyboardRegistry } from "./services/keyboardRegistry";
 
 const App: React.FC = () => {
+  const { toast } = useToast();
   const playlist = usePlaylist();
   const player = usePlayer({
     queue: playlist.queue,
@@ -130,20 +132,23 @@ const App: React.FC = () => {
     }
   };
 
-  const handleImportUrl = async (input: string) => {
+  const handleImportUrl = async (input: string): Promise<boolean> => {
     const trimmed = input.trim();
-    if (!trimmed) return;
+    if (!trimmed) return false;
     const wasEmpty = playlist.queue.length === 0;
     const result = await playlist.importFromUrl(trimmed);
     if (!result.success) {
-      alert(result.message ?? "Failed to load songs from URL");
-      return;
+      toast.error(result.message ?? "Failed to load songs from URL");
+      return false;
     }
     if (result.songs.length > 0) {
       setTimeout(() => {
         handlePlaylistAddition(result.songs, wasEmpty);
       }, 0);
+      toast.success(`Successfully imported ${result.songs.length} songs`);
+      return true;
     }
+    return false;
   };
 
   const handleImportAndPlay = (song: Song) => {
@@ -395,9 +400,8 @@ const App: React.FC = () => {
               }}
             >
               <span
-                className={`absolute inset-0 rounded-full bg-white/25 backdrop-blur-[30px] transition-opacity duration-200 ${
-                  activePanel === "controls" ? "opacity-90" : "opacity-60"
-                }`}
+                className={`absolute inset-0 rounded-full bg-white/25 backdrop-blur-[30px] transition-opacity duration-200 ${activePanel === "controls" ? "opacity-90" : "opacity-60"
+                  }`}
               />
             </button>
           </div>

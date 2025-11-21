@@ -53,19 +53,19 @@ const SEQUOIA_SCROLLBAR_STYLES = `
 
 const ANIMATION_STYLES = `
   @keyframes modal-in {
-      0% { opacity: 0; transform: scale(0.96) translateY(-8px); filter: blur(4px); }
-      100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0px); }
+      0% { opacity: 0; transform: scale(0.96) translateY(-8px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); }
   }
   @keyframes modal-out {
-      0% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0px); }
-      100% { opacity: 0; transform: scale(0.98) translateY(4px); filter: blur(8px); }
+      0% { opacity: 1; transform: scale(1) translateY(0); }
+      100% { opacity: 0; transform: scale(0.98) translateY(4px); }
   }
   @keyframes eq-bounce {
       0%, 100% { transform: scaleY(0.4); opacity: 0.8; }
       50% { transform: scaleY(1.0); opacity: 1; }
   }
-  .macos-modal-in { animation: modal-in 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
-  .macos-modal-out { animation: modal-out 0.25s cubic-bezier(0.32, 0.72, 0, 1) forwards; }
+  .macos-modal-in { animation: modal-in 0.2s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; will-change: transform, opacity; }
+  .macos-modal-out { animation: modal-out 0.15s cubic-bezier(0.32, 0.72, 0, 1) forwards; will-change: transform, opacity; }
 `;
 
 const SearchModal: React.FC<SearchModalProps> = ({
@@ -260,7 +260,7 @@ const SearchModal: React.FC<SearchModalProps> = ({
       <div
         className={`
         relative w-full max-w-[720px] h-[600px]
-        bg-black/10 backdrop-blur-[100px] saturate-150
+        bg-black/40 backdrop-blur-2xl saturate-150
         rounded-[20px]
         shadow-[0_50px_100px_-12px_rgba(0,0,0,0.7),0_0_0_1px_rgba(255,255,255,0.1)]
         flex flex-col overflow-hidden
@@ -352,7 +352,7 @@ const SearchModal: React.FC<SearchModalProps> = ({
                   {/* Floating Selection Background */}
                   {search.selectedIndex >= 0 && search.itemRefs.current[search.selectedIndex] && (
                     <div
-                      className="absolute left-0 right-0 bg-white/25 backdrop-blur-md rounded-[10px] pointer-events-none transition-all duration-200 ease-out"
+                      className="absolute left-0 right-0 bg-white/10 rounded-[10px] pointer-events-none transition-all duration-200 ease-out"
                       style={{
                         top: `${search.itemRefs.current[search.selectedIndex]?.offsetTop || 0}px`,
                         height: `${search.itemRefs.current[search.selectedIndex]?.offsetHeight || 56}px`,
@@ -466,6 +466,14 @@ const SearchModal: React.FC<SearchModalProps> = ({
                   <span className="text-base font-medium">
                     No matches found
                   </span>
+                </div>
+              )}
+
+              {/* Loading State */}
+              {search.showNeteaseLoading && (
+                <div className="flex flex-col items-center justify-center h-64 text-white/20">
+                  <div className="w-8 h-8 border-2 border-white/20 border-t-white/60 rounded-full animate-spin mb-4"></div>
+                  <span className="text-base font-medium">Searching...</span>
                 </div>
               )}
 

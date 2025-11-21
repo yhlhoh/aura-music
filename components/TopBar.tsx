@@ -1,5 +1,6 @@
-import React, { useRef } from "react";
-import { AuraLogo, SearchIcon, CloudDownloadIcon } from "./Icons";
+import React, { useRef, useState } from "react";
+import { AuraLogo, SearchIcon, CloudDownloadIcon, InfoIcon } from "./Icons";
+import AboutDialog from "./AboutDialog";
 
 interface TopBarProps {
   onFilesSelected: (files: FileList) => void;
@@ -13,6 +14,7 @@ const TopBar: React.FC<TopBarProps> = ({
   disabled,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isAboutOpen, setIsAboutOpen] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -44,7 +46,7 @@ const TopBar: React.FC<TopBarProps> = ({
           {/* Search Button */}
           <button
             onClick={onSearchClick}
-            className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-xl border border-white/10 flex items-center justify-center text-white/80 hover:bg-white/20 hover:text-white hover:scale-105 active:scale-95 transition-all shadow-sm"
+            className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-xl border border-white/10 flex items-center justify-center text-white/80 hover:bg-white/20 hover:text-white transition-all shadow-sm"
             title="Search (Cmd+K)"
           >
             <SearchIcon className="w-5 h-5" />
@@ -54,10 +56,19 @@ const TopBar: React.FC<TopBarProps> = ({
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={disabled}
-            className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-xl border border-white/10 flex items-center justify-center text-white/80 hover:bg-white/20 hover:text-white hover:scale-105 active:scale-95 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-xl border border-white/10 flex items-center justify-center text-white/80 hover:bg-white/20 hover:text-white transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             title="Import Local Files"
           >
             <CloudDownloadIcon className="w-5 h-5" />
+          </button>
+
+          {/* About Button */}
+          <button
+            onClick={() => setIsAboutOpen(true)}
+            className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-xl border border-white/10 flex items-center justify-center text-white/80 hover:bg-white/20 hover:text-white transition-all shadow-sm"
+            title="About Aura Music"
+          >
+            <InfoIcon className="w-5 h-5" />
           </button>
 
           <input
@@ -70,6 +81,7 @@ const TopBar: React.FC<TopBarProps> = ({
           />
         </div>
       </div>
+      <AboutDialog isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />
     </div>
   );
 };

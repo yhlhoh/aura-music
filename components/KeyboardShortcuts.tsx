@@ -131,20 +131,20 @@ const KeyboardShortcuts: React.FC<KeyboardShortcutsProps> = ({
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
       <style>{`
         @keyframes ios-in {
-            0% { opacity: 0; transform: scale(0.95); filter: blur(10px); }
-            100% { opacity: 1; transform: scale(1); filter: blur(0px); }
+            0% { opacity: 0; transform: scale(0.95); }
+            100% { opacity: 1; transform: scale(1); }
         }
         @keyframes ios-out {
-            0% { opacity: 1; transform: scale(1); filter: blur(0px); }
-            100% { opacity: 0; transform: scale(0.95); filter: blur(10px); }
+            0% { opacity: 1; transform: scale(1); }
+            100% { opacity: 0; transform: scale(0.95); }
         }
-        .animate-in { animation: ios-in 0.35s cubic-bezier(0.32, 0.72, 0, 1) forwards; }
-        .animate-out { animation: ios-out 0.25s cubic-bezier(0.32, 0.72, 0, 1) forwards; }
+        .animate-in { animation: ios-in 0.2s cubic-bezier(0.32, 0.72, 0, 1) forwards; will-change: transform, opacity; }
+        .animate-out { animation: ios-out 0.15s cubic-bezier(0.32, 0.72, 0, 1) forwards; will-change: transform, opacity; }
       `}</style>
 
       {/* Backdrop */}
       <div
-        className={`absolute inset-0 bg-black/30 backdrop-blur-sm transition-opacity duration-300 ${isOpen ? "opacity-100" : "opacity-0"}`}
+        className={`absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 ${isOpen ? "opacity-100" : "opacity-0"}`}
         onClick={() => setIsOpen(false)}
       />
 
@@ -152,7 +152,7 @@ const KeyboardShortcuts: React.FC<KeyboardShortcutsProps> = ({
       <div
         className={`
             relative w-full max-w-2xl
-            bg-zinc-900/20 backdrop-blur-[80px] saturate-150
+            bg-zinc-900/60 backdrop-blur-2xl saturate-150
             border border-white/10
             rounded-[32px]
             shadow-2xl shadow-black/30

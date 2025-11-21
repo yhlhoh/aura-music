@@ -198,6 +198,11 @@ export const useSearchModal = ({
     neteaseProvider.results.length === 0 &&
     !neteaseProvider.isLoading;
 
+  const showNeteaseLoading =
+    activeTab === "netease" &&
+    neteaseProvider.isLoading &&
+    neteaseProvider.results.length === 0;
+
   const showNeteaseInitial =
     activeTab === "netease" &&
     !neteaseProvider.hasSearched &&
@@ -244,6 +249,7 @@ export const useSearchModal = ({
     showNeteasePrompt,
     showNeteaseEmpty,
     showNeteaseInitial,
+    showNeteaseLoading,
 
     // Constants
     LIMIT,

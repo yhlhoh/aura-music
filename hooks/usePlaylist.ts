@@ -239,6 +239,7 @@ export const usePlaylist = () => {
               fileUrl: getNeteaseAudioUrl(song.id),
               lyrics: [],
               colors: [],
+              needsLyricsMatch: true,
             });
           });
         } else {
@@ -249,6 +250,7 @@ export const usePlaylist = () => {
               fileUrl: getNeteaseAudioUrl(song.id),
               lyrics: [],
               colors: [],
+              needsLyricsMatch: true,
             });
           }
         }
