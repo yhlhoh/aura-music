@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { AuraLogo, SearchIcon, CloudDownloadIcon, InfoIcon } from "./Icons";
+import { AuraLogo, SearchIcon, CloudDownloadIcon, InfoIcon, FullscreenIcon } from "./Icons";
 import AboutDialog from "./AboutDialog";
 
 interface TopBarProps {
@@ -15,6 +15,34 @@ const TopBar: React.FC<TopBarProps> = ({
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().then(() => {
+        setIsFullscreen(true);
+      }).catch((err) => {
+        console.error(`Error attempting to enable fullscreen: ${err.message} (${err.name})`);
+      });
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().then(() => {
+          setIsFullscreen(false);
+        });
+      }
+    }
+  };
+
+  React.useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -69,6 +97,15 @@ const TopBar: React.FC<TopBarProps> = ({
             title="About Aura Music"
           >
             <InfoIcon className="w-5 h-5" />
+          </button>
+
+          {/* Fullscreen Button */}
+          <button
+            onClick={toggleFullscreen}
+            className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-xl border border-white/10 flex items-center justify-center text-white/80 hover:bg-white/20 hover:text-white transition-all shadow-sm"
+            title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+          >
+            <FullscreenIcon className="w-5 h-5" isFullscreen={isFullscreen} />
           </button>
 
           <input
