@@ -236,18 +236,18 @@ const SearchModal: React.FC<SearchModalProps> = ({
   if (!isRendering) return null;
 
   return createPortal(
-      <div
-        className="fixed inset-0 z-[9999] flex items-start justify-center pt-[12vh] px-4 select-none font-sans"
-        onMouseDown={(e) => {
-          const target = e.target as HTMLElement;
-          if (!modalRef.current?.contains(target)) {
-            onClose();
-          }
-          if (!target.closest(".context-menu-container")) {
-            search.closeContextMenu();
-          }
-        }}
-      >
+    <div
+      className="fixed inset-0 z-[9999] flex items-start justify-center pt-[12vh] px-4 select-none font-sans"
+      onMouseDown={(e) => {
+        const target = e.target as HTMLElement;
+        if (!modalRef.current?.contains(target)) {
+          onClose();
+        }
+        if (!target.closest(".context-menu-container")) {
+          search.closeContextMenu();
+        }
+      }}
+    >
       <style>{SEQUOIA_SCROLLBAR_STYLES}</style>
       <style>{ANIMATION_STYLES}</style>
 

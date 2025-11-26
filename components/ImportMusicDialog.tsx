@@ -76,6 +76,11 @@ const ImportMusicDialog: React.FC<ImportMusicDialogProps> = ({
             className="w-full mt-5 bg-white/10 border border-white/10 rounded-xl px-4 py-3.5 text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:bg-white/10 transition-all text-[15px]"
             disabled={isLoading}
             autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                handleImport();
+              }
+            }}
           />
         </div>
 
@@ -90,11 +95,10 @@ const ImportMusicDialog: React.FC<ImportMusicDialogProps> = ({
           <button
             onClick={handleImport}
             disabled={isLoading}
-            className={`py-4 text-[17px] font-semibold transition-colors flex items-center justify-center gap-2 ${
-              isLoading
+            className={`py-4 text-[17px] font-semibold transition-colors flex items-center justify-center gap-2 ${isLoading
                 ? "text-white/40 cursor-not-allowed"
                 : "text-blue-400 hover:bg-white/5 active:bg-white/10"
-            }`}
+              }`}
           >
             {isLoading ? (
               <>
