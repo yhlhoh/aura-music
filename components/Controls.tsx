@@ -43,6 +43,10 @@ interface ControlsProps {
   onSpeedChange: (speed: number) => void;
   onTogglePreservesPitch: () => void;
   coverUrl?: string;
+  showVolumePopup: boolean;
+  setShowVolumePopup: (show: boolean) => void;
+  showSettingsPopup: boolean;
+  setShowSettingsPopup: (show: boolean) => void;
 }
 
 const Controls: React.FC<ControlsProps> = ({
@@ -67,20 +71,22 @@ const Controls: React.FC<ControlsProps> = ({
   onSpeedChange,
   onTogglePreservesPitch,
   coverUrl,
+  showVolumePopup,
+  setShowVolumePopup,
+  showSettingsPopup,
+  setShowSettingsPopup,
 }) => {
-  const [showVolume, setShowVolume] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const volumeContainerRef = useRef<HTMLDivElement>(null);
   const settingsContainerRef = useRef<HTMLDivElement>(null);
 
-  const volumeTransitions = useTransition(showVolume, {
+  const volumeTransitions = useTransition(showVolumePopup, {
     from: { opacity: 0, transform: "translate(-50%, 10px) scale(0.9)" },
     enter: { opacity: 1, transform: "translate(-50%, 0px) scale(1)" },
     leave: { opacity: 0, transform: "translate(-50%, 10px) scale(0.9)" },
     config: { tension: 300, friction: 20 },
   });
 
-  const settingsTransitions = useTransition(showSettings, {
+  const settingsTransitions = useTransition(showSettingsPopup, {
     from: { opacity: 0, transform: "translate(-50%, 10px) scale(0.9)" },
     enter: { opacity: 1, transform: "translate(-50%, 0px) scale(1)" },
     leave: { opacity: 0, transform: "translate(-50%, 10px) scale(0.9)" },
@@ -171,18 +177,41 @@ const Controls: React.FC<ControlsProps> = ({
         volumeContainerRef.current &&
         !volumeContainerRef.current.contains(event.target as Node)
       ) {
-        setShowVolume(false);
+        setShowVolumePopup(false);
       }
       if (
         settingsContainerRef.current &&
         !settingsContainerRef.current.contains(event.target as Node)
       ) {
-        setShowSettings(false);
+        setShowSettingsPopup(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [setShowVolumePopup, setShowSettingsPopup]);
+
+  // Scroll to adjust volume/speed
+  useEffect(() => {
+    if (!showVolumePopup && !showSettingsPopup) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -1 : 1;
+
+      if (showVolumePopup) {
+        const step = 0.05;
+        const newVolume = Math.min(Math.max(volume + delta * step, 0), 1);
+        onVolumeChange(Number(newVolume.toFixed(2)));
+      } else if (showSettingsPopup) {
+        const step = 0.01;
+        const newSpeed = Math.min(Math.max(speed + delta * step, 0.5), 2);
+        onSpeedChange(Number(newSpeed.toFixed(2)));
+      }
+    };
+
+    window.addEventListener("wheel", handleWheel, { passive: false });
+    return () => window.removeEventListener("wheel", handleWheel);
+  }, [showVolumePopup, showSettingsPopup, volume, speed, onVolumeChange, onSpeedChange]);
 
   const getModeIcon = () => {
     // Standard white colors, simplified hover
@@ -346,8 +375,8 @@ const Controls: React.FC<ControlsProps> = ({
           {/* 2. Volume */}
           <div className="relative" ref={volumeContainerRef}>
             <button
-              onClick={() => setShowVolume(!showVolume)}
-              className={`p-2 rounded-full hover:bg-white/10 transition-colors ${showVolume ? "text-white" : "text-white/60 hover:text-white"
+              onClick={() => setShowVolumePopup(!showVolumePopup)}
+              className={`p-2 rounded-full hover:bg-white/10 transition-colors ${showVolumePopup ? "text-white" : "text-white/60 hover:text-white"
                 }`}
               title="Volume"
             >
@@ -411,8 +440,8 @@ const Controls: React.FC<ControlsProps> = ({
           {/* 6. Settings (Replaces Like) */}
           <div className="relative" ref={settingsContainerRef}>
             <button
-              onClick={() => setShowSettings(!showSettings)}
-              className={`p-2 rounded-full hover:bg-white/10 transition-colors ${showSettings ? "text-white" : "text-white/60 hover:text-white"
+              onClick={() => setShowSettingsPopup(!showSettingsPopup)}
+              className={`p-2 rounded-full hover:bg-white/10 transition-colors ${showSettingsPopup ? "text-white" : "text-white/60 hover:text-white"
                 }`}
               title="Settings"
             >

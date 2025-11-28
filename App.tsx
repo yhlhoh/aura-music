@@ -48,6 +48,8 @@ const App: React.FC = () => {
 
   const [showPlaylist, setShowPlaylist] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [showVolumePopup, setShowVolumePopup] = useState(false);
+  const [showSettingsPopup, setShowSettingsPopup] = useState(false);
   const [volume, setVolume] = useState(1);
 
   const [isMobileLayout, setIsMobileLayout] = useState(false);
@@ -254,6 +256,10 @@ const App: React.FC = () => {
           onSpeedChange={player.setSpeed}
           onTogglePreservesPitch={player.togglePreservesPitch}
           coverUrl={currentSong?.coverUrl}
+          showVolumePopup={showVolumePopup}
+          setShowVolumePopup={setShowVolumePopup}
+          showSettingsPopup={showSettingsPopup}
+          setShowSettingsPopup={setShowSettingsPopup}
         />
 
         {/* Floating Playlist Panel */}
@@ -324,6 +330,10 @@ const App: React.FC = () => {
         onVolumeChange={setVolume}
         onToggleMode={toggleMode}
         onTogglePlaylist={() => setShowPlaylist((prev) => !prev)}
+        speed={player.speed}
+        onSpeedChange={player.setSpeed}
+        onToggleVolumeDialog={() => setShowVolumePopup((prev) => !prev)}
+        onToggleSpeedDialog={() => setShowSettingsPopup((prev) => !prev)}
       />
 
       {/* Top Bar */}
