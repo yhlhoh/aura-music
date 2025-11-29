@@ -259,7 +259,7 @@ export class LyricLine {
   public measure(containerWidth: number) {
     const { main, trans, mainHeight, transHeight } = getFonts(this.isMobile);
     const baseSize = this.isMobile ? 32 : 40;
-    const paddingY = 12;
+    const paddingY = 18;
     const paddingX = this.isMobile ? 24 : 56;
     const maxWidth = containerWidth - paddingX * 2;
 

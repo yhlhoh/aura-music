@@ -111,6 +111,10 @@ export class SpringSystem {
     return this.current[key] || 0;
   }
 
+  getVelocity(key: string): number {
+    return this.velocity[key] || 0;
+  }
+
   update(dt: number): boolean {
     let isMoving = false;
 
@@ -130,7 +134,7 @@ export class SpringSystem {
       const newVelocity = velocity + acceleration * dt;
       const newPosition = current + newVelocity * dt;
 
-      const precision = p.precision ?? 0.01;
+      const precision = p.precision ?? 0.001;
 
       // Removed overshoot check which caused the snapping effect
       // We rely on critical/over-damping and low velocity threshold

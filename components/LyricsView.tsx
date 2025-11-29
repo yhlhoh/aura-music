@@ -72,17 +72,18 @@ const LyricsView: React.FC<LyricsViewProps> = ({
     const positions: number[] = [];
     const heights: number[] = [];
     let currentY = 0;
-    const marginY = 12;
 
     lyricLines.forEach((line) => {
       const h = line.getHeight();
       positions.push(currentY);
       heights.push(h);
-      currentY += h + marginY;
+      currentY += h; // Don't add marginY here anymore
     });
 
     return { linePositions: positions, lineHeights: heights };
   }, [lyricLines]);
+
+  const marginY = isMobile ? 24 : 18; // Define marginY here
 
   // Physics Hook
   const { activeIndex, handlers, linesState, updatePhysics } = useLyricsPhysics(
@@ -95,6 +96,7 @@ const LyricsView: React.FC<LyricsViewProps> = ({
         typeof window !== "undefined" ? window.innerHeight * 0.6 : 800,
       linePositions,
       lineHeights,
+      marginY,
       isScrubbing: false,
     },
   );
@@ -168,6 +170,22 @@ const LyricsView: React.FC<LyricsViewProps> = ({
       if (!physics) return;
 
       const globalScroll = physics.posY.current;
+      // Visual Y = Packed Position + Global Scroll + Margin Offset + Focal Point
+      // We need to reconstruct the margin offset logic here or let physics handle it?
+      // The physics.posY.current now includes the margin offset relative to the camera?
+      // No, let's stick to the plan: physics.posY.current is the offset for this specific line.
+      // But wait, if we separated margin, we need to add it back for rendering.
+      // Let's assume physics.posY.current is the FINAL relative offset from the focal point?
+      // Or is it just the scroll position?
+      // In the previous code: visualY = linePositions[index] + globalScroll + focalPointOffset
+      // linePositions included margins.
+      // Now linePositions DOES NOT include margins.
+      // So visualY = linePositions[index] + (index * marginY) + globalScroll + focalPointOffset?
+      // Let's check useLyricsPhysics implementation plan.
+      // "Target = -currentGlobalScrollY + (index * effectiveMargin)"
+      // So physics.posY.current will effectively be (-Scroll + Index*Margin).
+      // So visualY = linePositions[index] + physics.posY.current + focalPointOffset.
+      // This remains correct IF physics.posY.current includes the margin offset.
       const visualY = linePositions[index] + globalScroll + focalPointOffset;
       const lineHeight = lineHeights[index];
 

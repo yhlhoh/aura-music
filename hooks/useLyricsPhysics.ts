@@ -8,8 +8,9 @@ interface UseLyricsPhysicsProps {
     currentTime: number;
     isMobile: boolean;
     containerHeight: number; // Passed from canvas
-    linePositions: number[]; // Absolute Y positions of lines
+    linePositions: number[]; // Absolute Y positions of lines (packed, no margins)
     lineHeights: number[];   // Heights of lines for centering logic
+    marginY: number;         // Base margin between lines
     isScrubbing: boolean;
 }
 
@@ -41,8 +42,8 @@ const getLinePosSpring = (relativeIndex: number): SpringConfig => {
     // Exponential Decay for Large Variation
     // Reduced base stiffness and increased damping to prevent flickering
     const base = 300;
-    const stiffness = Math.max(15, base * Math.pow(0.5, dist));
-    const damping = Math.sqrt(stiffness) * 1.75; // Over-damped to prevent oscillation
+    const stiffness = Math.max(25, base * Math.pow(0.5, dist));
+    const damping = Math.sqrt(stiffness) * 1.15; // Over-damped to prevent oscillation
 
     return {
         mass: 1,
@@ -67,6 +68,7 @@ export const useLyricsPhysics = ({
     containerHeight,
     linePositions,
     lineHeights,
+    marginY,
     isScrubbing,
 }: UseLyricsPhysicsProps) => {
     const [activeIndex, setActiveIndex] = useState(-1);
@@ -161,11 +163,15 @@ export const useLyricsPhysics = ({
             const lineY = linePositions[activeIndex] || 0;
             const lineHeight = lineHeights[activeIndex] || 0;
 
+            // Add margin offset
+            // We assume static margin for the target calculation to ensure it lands in the right place
+            const marginOffset = activeIndex * marginY;
+
             // Center the line at the focal point
             const focalPoint = containerHeight * FOCAL_POINT_RATIO;
             const elementCenterOffset = lineHeight / 2;
 
-            return lineY + elementCenterOffset;
+            return lineY + marginOffset + elementCenterOffset;
         };
 
         let targetGlobalScrollY = system.getCurrent("scrollY");
@@ -199,10 +205,49 @@ export const useLyricsPhysics = ({
         const isUserInteracting = userScrollActive || isScrubbing;
 
         // 2. Update All Lines
+        const scrollVelocity = system.getVelocity("scrollY");
+        // Elastic margin effect: expand/contract based on velocity
+        // When scrolling down (velocity > 0), we want lines to spread out? Or compress?
+        // Let's try a "slinky" effect where they spread out with speed.
+        // Limit the effect to avoid extreme spacing.
+        const elasticFactor = Math.min(Math.max(scrollVelocity * 0.002, -0.5), 0.5);
+        const effectiveMargin = marginY * (1 + Math.abs(elasticFactor));
+
         linesState.current.forEach((state, index) => {
             // --- A. Position Physics ---
             // Target is the inverse of the global scroll (camera moves down, items move up relative to camera)
-            state.posY.target = -currentGlobalScrollY;
+            // But we also need to account for the margin spacing relative to the active index?
+            // Actually, if we just position them absolutely:
+            // TargetPos = -GlobalScroll + (index * effectiveMargin)
+            // But we need to be careful. If we change margin dynamically, the whole list jumps.
+            // We want the expansion to be relative to the center or active item?
+            // Let's make it relative to the active index to keep the active line stable.
+
+            const relativeIndex = index - (activeIndex === -1 ? 0 : activeIndex);
+            const marginOffset = index * marginY; // Base position
+
+            // Apply elasticity relative to the center of the screen or active item
+            // If we just use index * effectiveMargin, the top items move up and bottom items move down.
+            // That's probably what we want for a "zoom/spread" effect.
+
+            // Let's try adding a dynamic offset based on velocity and distance from center?
+            // Simpler: Just use the margin offset in the target.
+
+            // We need to calculate the target position for this line.
+            // The global scroll system tracks the "camera" position.
+            // The camera is centered on the active line (mostly).
+            // So state.posY.target should be:
+            // -currentGlobalScrollY + (index * marginY)
+            // Wait, if we use effectiveMargin here, it will jitter if velocity changes.
+            // Maybe we should apply the elasticity as a temporary offset rather than changing the target?
+            // Or use a spring for the margin itself?
+
+            // Let's stick to the requested "elastic effect".
+            // If we modify the target, the spring system will smooth it out.
+            // So:
+            const elasticMarginOffset = relativeIndex * (marginY * elasticFactor);
+
+            state.posY.target = -currentGlobalScrollY + (index * marginY) + elasticMarginOffset;
 
             if (isScrubbing) {
                 state.posY.current = state.posY.target;
