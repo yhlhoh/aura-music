@@ -278,7 +278,7 @@ const Controls: React.FC<ControlsProps> = ({
         <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent pointer-events-none"></div>
       </div>
       {/* Song Info */}
-      <div className="text-center mb-1 px-4">
+      <div className="text-center mb-1 px-4 select-text cursor-text">
         <h2 className="text-2xl font-bold tracking-tight drop-shadow-md line-clamp-1">
           {title}
         </h2>

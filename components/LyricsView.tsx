@@ -60,10 +60,29 @@ const LyricsView: React.FC<LyricsViewProps> = ({
     }
 
     // Create LyricLine instances
-    const lines = lyrics.map((line, index) => {
+    const lines: LyricLine[] = [];
+    const previousWidths: number[] = [];
+    const WINDOW_SIZE = 5;
+
+    lyrics.forEach((line, index) => {
       const lyricLine = new LyricLine(line, index, isMobile);
-      lyricLine.measure(containerWidth);
-      return lyricLine;
+
+      // Calculate max width from previous n lines
+      let suggestedWidth = 0;
+      if (previousWidths.length > 0) {
+        suggestedWidth = Math.max(...previousWidths);
+      }
+
+      lyricLine.measure(containerWidth, suggestedWidth);
+
+      // Update sliding window
+      const textWidth = lyricLine.getTextWidth();
+      previousWidths.push(textWidth);
+      if (previousWidths.length > WINDOW_SIZE) {
+        previousWidths.shift();
+      }
+
+      lines.push(lyricLine);
     });
 
     setLyricLines(lines);
@@ -85,7 +104,7 @@ const LyricsView: React.FC<LyricsViewProps> = ({
     return { linePositions: positions, lineHeights: heights };
   }, [lyricLines]);
 
-  const marginY = isMobile ? 24 : 18; // Define marginY here
+  const marginY = 18; // Define marginY here
 
   // Physics Hook
   const { activeIndex, handlers, linesState, updatePhysics } = useLyricsPhysics(

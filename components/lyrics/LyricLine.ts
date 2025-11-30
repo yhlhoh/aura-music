@@ -256,7 +256,7 @@ export class LyricLine {
     this.ctx.restore();
   }
 
-  public measure(containerWidth: number) {
+  public measure(containerWidth: number, suggestedTranslationWidth?: number) {
     const { main, trans, mainHeight, transHeight } = getFonts(this.isMobile);
     const baseSize = this.isMobile ? 32 : 40;
     const paddingY = 18;
@@ -295,7 +295,14 @@ export class LyricLine {
     let translationLines: string[] | undefined = undefined;
 
     if (this.lyricLine.translation) {
-      const translationWrapWidth = textWidth > 0 ? textWidth : maxWidth;
+      // Use suggested width if provided and larger than current text width, but not exceeding maxWidth
+      // Otherwise use textWidth (if > 0) or maxWidth
+      let translationWrapWidth = textWidth > 0 ? textWidth : maxWidth;
+
+      if (suggestedTranslationWidth && suggestedTranslationWidth > translationWrapWidth) {
+        translationWrapWidth = Math.min(suggestedTranslationWidth, maxWidth);
+      }
+
       const translationResult = this.measureTranslationLines({
         translation: this.lyricLine.translation,
         maxWidth: translationWrapWidth,
@@ -334,6 +341,10 @@ export class LyricLine {
     }
 
     this.isDirty = true;
+  }
+
+  public getTextWidth() {
+    return this.layout?.textWidth || 0;
   }
 
   public draw(currentTime: number, isActive: boolean, isHovered: boolean) {

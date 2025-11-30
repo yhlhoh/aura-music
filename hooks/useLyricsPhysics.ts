@@ -152,7 +152,7 @@ export const useLyricsPhysics = ({
 
         // 1. Handle Global Scroll Physics
         const timeSinceInteraction = now - sState.lastInteractionTime;
-        const userScrollActive = (sState.isDragging || timeSinceInteraction < RESUME_DELAY_MS) && Math.abs(currentTime - dt) > 3
+        const userScrollActive = (sState.isDragging || timeSinceInteraction < RESUME_DELAY_MS);
 
 
         // Calculate target scroll based on active index
