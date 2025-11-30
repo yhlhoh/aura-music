@@ -25,9 +25,11 @@ const LyricsView: React.FC<LyricsViewProps> = ({
 }) => {
   const [isMobile, setIsMobile] = useState(false);
   const [lyricLines, setLyricLines] = useState<ILyricLine[]>([]);
+  const [mobileHoverIndex, setMobileHoverIndex] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
   const [containerHeight, setContainerHeight] = useState(0);
+  const mobileHoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Detect mobile layout
   useEffect(() => {
@@ -35,11 +37,49 @@ const LyricsView: React.FC<LyricsViewProps> = ({
     const query = window.matchMedia("(max-width: 1024px)");
     const updateLayout = (event: MediaQueryListEvent | MediaQueryList) => {
       setIsMobile(event.matches);
+      if (!event.matches) {
+        setMobileHoverIndex(null);
+      }
     };
     updateLayout(query);
     query.addEventListener("change", updateLayout);
     return () => query.removeEventListener("change", updateLayout);
   }, []);
+
+  useEffect(() => {
+    if (mobileHoverIndex !== null && mobileHoverIndex >= lyrics.length) {
+      setMobileHoverIndex(null);
+    }
+  }, [lyrics.length, mobileHoverIndex]);
+
+  useEffect(() => {
+    if (!isMobile) {
+      if (mobileHoverTimeoutRef.current) {
+        clearTimeout(mobileHoverTimeoutRef.current);
+        mobileHoverTimeoutRef.current = null;
+      }
+      return;
+    }
+
+    if (mobileHoverTimeoutRef.current) {
+      clearTimeout(mobileHoverTimeoutRef.current);
+      mobileHoverTimeoutRef.current = null;
+    }
+
+    if (mobileHoverIndex !== null) {
+      mobileHoverTimeoutRef.current = setTimeout(() => {
+        setMobileHoverIndex(null);
+        mobileHoverTimeoutRef.current = null;
+      }, 5000);
+    }
+
+    return () => {
+      if (mobileHoverTimeoutRef.current) {
+        clearTimeout(mobileHoverTimeoutRef.current);
+        mobileHoverTimeoutRef.current = null;
+      }
+    };
+  }, [mobileHoverIndex, isMobile]);
 
   // Measure Container Width
   useEffect(() => {
@@ -128,12 +168,98 @@ const LyricsView: React.FC<LyricsViewProps> = ({
   // Mouse Interaction State
   const mouseRef = useRef({ x: 0, y: 0 });
   const visualTimeRef = useRef(currentTime);
+  const touchIntentRef = useRef({
+    id: null as number | null,
+    startX: 0,
+    startY: 0,
+    lockedToLyrics: false,
+    lockDecided: false,
+  });
 
   // Mouse Tracking
   const handleMouseMove = (e: React.MouseEvent) => {
     const rect = e.currentTarget.getBoundingClientRect();
     mouseRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
     handlers.onTouchMove(e);
+  };
+
+  const updateTouchIntent = (e: React.TouchEvent<HTMLDivElement>) => {
+    const intent = touchIntentRef.current;
+    const touches = e.touches.length ? e.touches : e.changedTouches;
+
+    if (intent.id === null && touches.length > 0) {
+      const first = touches[0];
+      intent.id = first.identifier;
+      intent.startX = first.clientX;
+      intent.startY = first.clientY;
+      intent.lockDecided = false;
+      intent.lockedToLyrics = false;
+    }
+
+    const match = Array.from(touches).find((t) => t.identifier === intent.id);
+    if (!match) {
+      return intent;
+    }
+
+    if (!intent.lockDecided) {
+      const deltaX = Math.abs(match.clientX - intent.startX);
+      const deltaY = Math.abs(match.clientY - intent.startY);
+      const threshold = 8;
+      if (deltaX > threshold || deltaY > threshold) {
+        intent.lockDecided = true;
+        intent.lockedToLyrics = deltaY > deltaX * 1.15;
+      }
+    }
+
+    return intent;
+  };
+
+  const resetTouchIntent = () => {
+    touchIntentRef.current = {
+      id: null,
+      startX: 0,
+      startY: 0,
+      lockedToLyrics: false,
+      lockDecided: false,
+    };
+  };
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    const first = e.touches[0];
+    if (first) {
+      touchIntentRef.current.id = first.identifier;
+      touchIntentRef.current.startX = first.clientX;
+      touchIntentRef.current.startY = first.clientY;
+      touchIntentRef.current.lockDecided = false;
+      touchIntentRef.current.lockedToLyrics = false;
+    }
+    handlers.onTouchStart(e);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    const intent = updateTouchIntent(e);
+    if (intent.lockedToLyrics) {
+      e.stopPropagation();
+    }
+    handlers.onTouchMove(e);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    const intent = updateTouchIntent(e);
+    if (intent.lockedToLyrics) {
+      e.stopPropagation();
+    }
+    handlers.onTouchEnd();
+    resetTouchIntent();
+  };
+
+  const handleTouchCancel = (e: React.TouchEvent<HTMLDivElement>) => {
+    const intent = updateTouchIntent(e);
+    if (intent.lockedToLyrics) {
+      e.stopPropagation();
+    }
+    handlers.onTouchEnd();
+    resetTouchIntent();
   };
 
   // Render Function
@@ -188,8 +314,6 @@ const LyricsView: React.FC<LyricsViewProps> = ({
     const paddingX = isMobile ? 24 : 56;
     const focalPointOffset = height * 0.25;
 
-    let currentHover = -1;
-
     // First pass: Determine hover and visibility
     // We can optimize this if needed, but for now iterating is fine.
     // Actually, we need to iterate to draw anyway.
@@ -205,18 +329,18 @@ const LyricsView: React.FC<LyricsViewProps> = ({
         return;
       }
 
-      // Hit Test for Hover
-      if (
+      // Hit Test for Hover (pointer devices)
+      const pointerHover =
         mouseRef.current.x >= paddingX - 20 &&
         mouseRef.current.x <= width - paddingX + 20 &&
         mouseRef.current.y >= visualY &&
-        mouseRef.current.y <= visualY + lineHeight
-      ) {
-        currentHover = index;
-      }
+        mouseRef.current.y <= visualY + lineHeight;
 
       const isActive = index === activeIndex;
       const scale = physics.scale.current;
+      const isHovering = isMobile
+        ? mobileHoverIndex === index
+        : pointerHover;
 
       // Opacity & Blur
       const lineCenter = visualY + lineHeight / 2;
@@ -236,7 +360,7 @@ const LyricsView: React.FC<LyricsViewProps> = ({
         }
       }
 
-      if (index === currentHover) {
+      if (isHovering) {
         opacity = Math.max(opacity, 0.8);
         blur = 0;
       }
@@ -249,7 +373,7 @@ const LyricsView: React.FC<LyricsViewProps> = ({
       line.draw(
         isActive ? visualTime : currentTime,
         isActive,
-        index === currentHover,
+        isHovering,
       );
 
       // Draw the line's canvas onto the main canvas
@@ -305,6 +429,7 @@ const LyricsView: React.FC<LyricsViewProps> = ({
     const height = rect.height;
     const focalPointOffset = height * 0.25;
 
+    let matched = false;
     for (let i = 0; i < lyricLines.length; i++) {
       if (lyrics[i]?.isMetadata) {
         continue;
@@ -317,12 +442,17 @@ const LyricsView: React.FC<LyricsViewProps> = ({
 
       if (clickY >= visualY && clickY <= visualY + h) {
         onSeekRequest(lyrics[i].time, true);
-        handlers.onClick();
         if (isMobile) {
-          mouseRef.current = { x: -1000, y: -1000 };
+          setMobileHoverIndex(i);
         }
+        handlers.onClick();
+        matched = true;
         break;
       }
+    }
+
+    if (isMobile && !matched) {
+      setMobileHoverIndex(null);
     }
   };
 
@@ -346,9 +476,10 @@ const LyricsView: React.FC<LyricsViewProps> = ({
       ref={containerRef}
       className="relative h-[85vh] lg:h-[65vh] w-full overflow-hidden cursor-grab active:cursor-grabbing touch-none select-none"
       onWheel={handlers.onWheel}
-      onTouchStart={handlers.onTouchStart}
-      onTouchMove={handlers.onTouchMove}
-      onTouchEnd={handlers.onTouchEnd}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchCancel}
       onMouseDown={handlers.onTouchStart}
       onMouseMove={handleMouseMove}
       onMouseUp={handlers.onTouchEnd}
