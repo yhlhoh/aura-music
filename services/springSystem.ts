@@ -75,6 +75,14 @@ export const CAMERA_SPRING: SpringConfig = {
   precision: 0.1,
 };
 
+// Interlude Spring: Smooth expansion/collapse
+export const INTERLUDE_SPRING: SpringConfig = {
+  mass: 1,
+  stiffness: 120,
+  damping: 20,
+  precision: 0.001,
+};
+
 export class SpringSystem {
   private current: Record<string, number> = {};
   private target: Record<string, number> = {};

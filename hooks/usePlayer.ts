@@ -57,7 +57,13 @@ export const usePlayer = ({
   const [playMode, setPlayMode] = useState<PlayMode>(PlayMode.LOOP_ALL);
   const [matchStatus, setMatchStatus] = useState<MatchStatus>("idle");
   const audioRef = useRef<HTMLAudioElement>(null);
-  const isSeeking = useRef(false);
+  const isSeekingRef = useRef(false);
+  const [isSeeking, setIsSeeking] = useState(false);
+
+  const setSeekingState = useCallback((value: boolean) => {
+    isSeekingRef.current = value;
+    setIsSeeking(value);
+  }, []);
 
   const currentSong = queue[currentIndex] ?? null;
   const accentColor = currentSong?.colors?.[0] || "#a855f7";
@@ -131,13 +137,13 @@ export const usePlayer = ({
 
       if (defer) {
         // Only update visual state during drag, don't actually seek
-        isSeeking.current = true;
+        setSeekingState(true);
         setCurrentTime(time);
       } else {
         // Actually perform the seek
         audioRef.current.currentTime = time;
         setCurrentTime(time);
-        isSeeking.current = false;
+        setSeekingState(false);
         if (playImmediately) {
           audioRef.current
             .play()
@@ -146,11 +152,11 @@ export const usePlayer = ({
         }
       }
     },
-    [],
+    [setSeekingState],
   );
 
   const handleTimeUpdate = useCallback(() => {
-    if (!audioRef.current || isSeeking.current) return;
+    if (!audioRef.current || isSeekingRef.current) return;
     setCurrentTime(audioRef.current.currentTime);
   }, []);
 
@@ -259,10 +265,9 @@ export const usePlayer = ({
       const parsed = parseLyrics(result.lrc, result.tLrc);
       const metadataCount = result.metadata.length;
       const metadataLines = result.metadata.map((text, idx) => ({
-        time: -0.000001 * (metadataCount - idx),
+        time: 0.0001 * (metadataCount - idx),
         text,
       }));
-      console.log(metadataLines)
       return [...metadataLines, ...parsed].sort((a, b) => a.time - b.time);
     },
     [],
@@ -397,7 +402,7 @@ export const usePlayer = ({
     if (!audio) return;
 
     const handleNativeTimeUpdate = () => {
-      if (isSeeking.current) return;
+      if (isSeekingRef.current) return;
       setCurrentTime(audio.currentTime);
     };
 
@@ -474,6 +479,7 @@ export const usePlayer = ({
     duration,
     playMode,
     matchStatus,
+    isSeeking,
     accentColor,
     speed,
     preservesPitch,

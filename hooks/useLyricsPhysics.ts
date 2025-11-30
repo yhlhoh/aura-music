@@ -2,6 +2,9 @@ import { useRef, useEffect, useState, useCallback } from "react";
 import { LyricLine } from "../types";
 import { SpringSystem, SpringConfig, CAMERA_SPRING } from "../services/springSystem";
 
+const getNow = () =>
+  typeof performance !== "undefined" ? performance.now() : Date.now();
+
 interface UseLyricsPhysicsProps {
     lyrics: LyricLine[];
     audioRef: React.RefObject<HTMLAudioElement>;
@@ -79,18 +82,24 @@ export const useLyricsPhysics = ({
     // Main Scroll Spring (The "Camera")
     const springSystem = useRef(new SpringSystem({ scrollY: 0 }));
 
+    const RESUME_DELAY_MS = 3000;
+    const FOCAL_POINT_RATIO = 0.35; // 35% from top (matched to LyricsView)
+
     // Scroll Interaction State
     const scrollState = useRef({
         isDragging: false,
-        lastInteractionTime: 0,
+        lastInteractionTime: getNow() - RESUME_DELAY_MS - 10,
         touchStartY: 0,
         touchLastY: 0,
         touchVelocity: 0,
         targetScrollY: 0,
     });
 
-    const RESUME_DELAY_MS = 3000;
-    const FOCAL_POINT_RATIO = 0.35; // 35% from top (matched to LyricsView)
+    const markScrollIdle = () => {
+        scrollState.current.lastInteractionTime = getNow() - RESUME_DELAY_MS - 10;
+        scrollState.current.isDragging = false;
+        scrollState.current.touchVelocity = 0;
+    };
 
     // Initialize line states
     useEffect(() => {
@@ -103,7 +112,7 @@ export const useLyricsPhysics = ({
         lyrics.forEach((_, i) => {
             if (!linesState.current.has(i)) {
                 linesState.current.set(i, {
-                    posY: { current: 0, velocity: 0, target: 0 },
+                    posY: { current: linePositions[i] || 0, velocity: 0, target: linePositions[i] || 0 },
                     scale: { current: 1, velocity: 0, target: 1 },
                 });
             }
@@ -145,26 +154,32 @@ export const useLyricsPhysics = ({
     };
 
     // Main Physics Loop - Exposed as update function
-    const updatePhysics = useCallback((dt: number) => {
+    const updatePhysics = useCallback((dt: number, currentLineHeights?: number[]) => {
         const now = performance.now();
         const sState = scrollState.current;
         const system = springSystem.current;
 
+        // Use dynamic heights if provided, otherwise fallback to static
+        const activeHeights = (currentLineHeights && currentLineHeights.length > 0) ? currentLineHeights : lineHeights;
+
         // 1. Handle Global Scroll Physics
         const timeSinceInteraction = now - sState.lastInteractionTime;
         const userScrollActive = (sState.isDragging || timeSinceInteraction < RESUME_DELAY_MS);
-
 
         // Calculate target scroll based on active index
         const computeActiveScrollTarget = () => {
             if (activeIndex === -1) return 0;
 
             // Use absolute position from layout
-            const lineY = linePositions[activeIndex] || 0;
-            const lineHeight = lineHeights[activeIndex] || 0;
+            // We need to recalculate position based on dynamic heights if they changed
+            let lineY = 0;
+            for (let i = 0; i < activeIndex; i++) {
+                lineY += activeHeights[i];
+            }
+
+            const lineHeight = activeHeights[activeIndex] || 0;
 
             // Add margin offset
-            // We assume static margin for the target calculation to ensure it lands in the right place
             const marginOffset = activeIndex * marginY;
 
             // Center the line at the focal point
@@ -193,7 +208,6 @@ export const useLyricsPhysics = ({
         } else {
             targetGlobalScrollY = computeActiveScrollTarget();
             // Smoothly interpolate to target using spring
-            // This fixes the "click to scroll" jumpiness
             system.setTarget("scrollY", targetGlobalScrollY, CAMERA_SPRING);
         }
 
@@ -206,48 +220,33 @@ export const useLyricsPhysics = ({
 
         // 2. Update All Lines
         const scrollVelocity = system.getVelocity("scrollY");
-        // Elastic margin effect: expand/contract based on velocity
-        // When scrolling down (velocity > 0), we want lines to spread out? Or compress?
-        // Let's try a "slinky" effect where they spread out with speed.
-        // Limit the effect to avoid extreme spacing.
+
+        // Elastic margin effect
         const elasticFactor = Math.min(Math.max(scrollVelocity * 0.002, -0.5), 0.5);
         const effectiveMargin = marginY * (1 + Math.abs(elasticFactor));
 
+        // Recalculate all positions based on current heights
+        let currentY = 0;
+        const currentPositions: number[] = [];
+        activeHeights.forEach(h => {
+            currentPositions.push(currentY);
+            currentY += h;
+        });
+
         linesState.current.forEach((state, index) => {
             // --- A. Position Physics ---
-            // Target is the inverse of the global scroll (camera moves down, items move up relative to camera)
-            // But we also need to account for the margin spacing relative to the active index?
-            // Actually, if we just position them absolutely:
-            // TargetPos = -GlobalScroll + (index * effectiveMargin)
-            // But we need to be careful. If we change margin dynamically, the whole list jumps.
-            // We want the expansion to be relative to the center or active item?
-            // Let's make it relative to the active index to keep the active line stable.
-
             const relativeIndex = index - (activeIndex === -1 ? 0 : activeIndex);
-            const marginOffset = index * marginY; // Base position
 
             // Apply elasticity relative to the center of the screen or active item
-            // If we just use index * effectiveMargin, the top items move up and bottom items move down.
-            // That's probably what we want for a "zoom/spread" effect.
-
-            // Let's try adding a dynamic offset based on velocity and distance from center?
-            // Simpler: Just use the margin offset in the target.
-
-            // We need to calculate the target position for this line.
-            // The global scroll system tracks the "camera" position.
-            // The camera is centered on the active line (mostly).
-            // So state.posY.target should be:
-            // -currentGlobalScrollY + (index * marginY)
-            // Wait, if we use effectiveMargin here, it will jitter if velocity changes.
-            // Maybe we should apply the elasticity as a temporary offset rather than changing the target?
-            // Or use a spring for the margin itself?
-
-            // Let's stick to the requested "elastic effect".
-            // If we modify the target, the spring system will smooth it out.
-            // So:
             const elasticMarginOffset = relativeIndex * (marginY * elasticFactor);
 
-            state.posY.target = -currentGlobalScrollY + (index * marginY) + elasticMarginOffset;
+            // Use recalculated position
+            const targetPos = currentPositions[index];
+
+            // Guard against undefined targetPos (e.g. during initialization)
+            if (typeof targetPos === 'number') {
+                state.posY.target = -currentGlobalScrollY + targetPos + (index * marginY) + elasticMarginOffset;
+            }
 
             if (isScrubbing) {
                 state.posY.current = state.posY.target;
@@ -277,19 +276,17 @@ export const useLyricsPhysics = ({
             }
 
             // --- B. Scale Physics ---
-            // Calculate visual position for scale logic
-            const lineY = linePositions[index] || 0;
-            const lineHeight = lineHeights[index] || 0;
+            const lineY = currentPositions[index] || 0;
+            const lineHeight = activeHeights[index] || 0;
             const lineCenter = lineY + lineHeight / 2;
 
             const currentScrollY = -state.posY.current;
             const visualLineCenter = lineCenter - currentScrollY;
             const visualActivePoint = containerHeight * FOCAL_POINT_RATIO;
-            const dist = Math.abs(visualLineCenter - visualActivePoint);
 
             let targetScale = 1;
             if (index === activeIndex) {
-                targetScale = 1.03
+                targetScale = 1.03;
             }
 
             state.scale.target = targetScale;
@@ -335,8 +332,7 @@ export const useLyricsPhysics = ({
             system.setValue("scrollY", newY);
         },
         onClick: () => {
-            scrollState.current.lastInteractionTime = 0;
-            scrollState.current.isDragging = false;
+            markScrollIdle();
         }
     };
 

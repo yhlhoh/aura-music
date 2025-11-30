@@ -1,4 +1,5 @@
 import { LyricLine as LyricLineType } from "../../types";
+import { ILyricLine } from "./ILyricLine";
 
 export interface WordLayout {
   text: string;
@@ -81,7 +82,7 @@ const getFonts = (isMobile: boolean) => {
   };
 };
 
-export class LyricLine {
+export class LyricLine implements ILyricLine {
   private canvas: OffscreenCanvas | HTMLCanvasElement;
   private ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D;
   private layout: LineLayout | null = null;
@@ -395,11 +396,8 @@ export class LyricLine {
       }
     }
 
+    // Interlude logic moved to InterludeDots class
     if (isInterlude) {
-      this.drawInterludeDots(isActive, isHovered, currentTime);
-      this.lastIsActive = isActive;
-      this.lastIsHovered = isHovered;
-      this.isDirty = false;
       return;
     }
 
@@ -421,65 +419,17 @@ export class LyricLine {
     this.isDirty = false;
   }
 
-  private drawInterludeDots(isActive: boolean, isHovered: boolean, currentTime: number) {
-    // Clear canvas
-    this.ctx.clearRect(0, 0, this.logicalWidth, this.logicalHeight);
 
-    const { mainHeight } = getFonts(this.isMobile);
-    const paddingX = this.isMobile ? 24 : 56;
-
-    // Dots configuration
-    const dotRadius = this.isMobile ? 4 : 6;
-    const dotSpacing = this.isMobile ? 16 : 24;
-    const totalDotsWidth = dotSpacing * 2; // 3 dots, 2 spaces
-    const baseOpacity = 0.3;
-    const activeOpacity = 0.9;
-
-    this.ctx.save();
-
-    // Draw hover background (round rect) like normal lyrics
-    if (isHovered) {
-      this.ctx.fillStyle = "rgba(255, 255, 255, 0.08)";
-      const bgWidth = Math.max(totalDotsWidth + 80, 200); // Wider background for hover
-      this.roundRect(paddingX - 16, 0, bgWidth, this.layout!.height, 16);
-      this.ctx.fill();
-    }
-
-    // Position dots
-    this.ctx.translate(paddingX + 20, this.layout!.height / 2);
-
-    for (let i = 0; i < 3; i++) {
-      let opacity = baseOpacity;
-      let scale = 1.0;
-
-      if (isActive) {
-        // Create a wave effect based on time
-        // Offset phase by index for cascading animation
-        const speed = 3.0;
-        const phase = i * 0.5;
-        const t = currentTime * speed - phase;
-
-        // Sine wave 0..1
-        const wave = (Math.sin(t) + 1) / 2;
-
-        opacity = baseOpacity + (activeOpacity - baseOpacity) * wave;
-        scale = 1.0 + 0.3 * wave;
-      }
-
-      this.ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
-      this.ctx.beginPath();
-      this.ctx.arc(i * dotSpacing, 0, dotRadius * scale, 0, Math.PI * 2);
-      this.ctx.fill();
-    }
-
-    this.ctx.restore();
-  }
 
   public getCanvas() {
     return this.canvas;
   }
 
   public getHeight() {
+    return this._height;
+  }
+
+  public getCurrentHeight() {
     return this._height;
   }
 

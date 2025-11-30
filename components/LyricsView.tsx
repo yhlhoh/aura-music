@@ -3,6 +3,8 @@ import { LyricLine as LyricLineType } from "../types";
 import { useLyricsPhysics } from "../hooks/useLyricsPhysics";
 import { useCanvasRenderer } from "../hooks/useCanvasRenderer";
 import { LyricLine } from "./lyrics/LyricLine";
+import { InterludeDots } from "./lyrics/InterludeDots";
+import { ILyricLine } from "./lyrics/ILyricLine";
 
 interface LyricsViewProps {
   lyrics: LyricLineType[];
@@ -11,6 +13,7 @@ interface LyricsViewProps {
   currentTime: number;
   onSeekRequest: (time: number, immediate?: boolean) => void;
   matchStatus: "idle" | "matching" | "success" | "failed";
+  isScrubbing: boolean;
 }
 
 const LyricsView: React.FC<LyricsViewProps> = ({
@@ -20,9 +23,10 @@ const LyricsView: React.FC<LyricsViewProps> = ({
   currentTime,
   onSeekRequest,
   matchStatus,
+  isScrubbing,
 }) => {
   const [isMobile, setIsMobile] = useState(false);
-  const [lyricLines, setLyricLines] = useState<LyricLine[]>([]);
+  const [lyricLines, setLyricLines] = useState<ILyricLine[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
   const [containerHeight, setContainerHeight] = useState(0);
@@ -60,12 +64,15 @@ const LyricsView: React.FC<LyricsViewProps> = ({
     }
 
     // Create LyricLine instances
-    const lines: LyricLine[] = [];
+    const lines: ILyricLine[] = [];
     const previousWidths: number[] = [];
     const WINDOW_SIZE = 5;
 
     lyrics.forEach((line, index) => {
-      const lyricLine = new LyricLine(line, index, isMobile);
+      const isInterlude = line.isInterlude || line.text === "...";
+      const lyricLine = isInterlude
+        ? new InterludeDots(line, index, isMobile)
+        : new LyricLine(line, index, isMobile);
 
       // Calculate max width from previous n lines
       let suggestedWidth = 0;
@@ -117,7 +124,7 @@ const LyricsView: React.FC<LyricsViewProps> = ({
       linePositions,
       lineHeights,
       marginY,
-      isScrubbing: false,
+    isScrubbing,
     },
   );
 
@@ -141,7 +148,11 @@ const LyricsView: React.FC<LyricsViewProps> = ({
   ) => {
     // Update Physics
     const dt = Math.min(deltaTime, 64) / 1000;
-    updatePhysics(dt);
+
+    // Calculate current dynamic heights
+    const currentLineHeights = lyricLines.map(l => l.getCurrentHeight());
+
+    updatePhysics(dt, currentLineHeights);
 
     // Smooth visual time interpolation
     // currentTime updates infrequently (every 50-200ms), but we render at high fps
@@ -206,8 +217,13 @@ const LyricsView: React.FC<LyricsViewProps> = ({
       // So physics.posY.current will effectively be (-Scroll + Index*Margin).
       // So visualY = linePositions[index] + physics.posY.current + focalPointOffset.
       // This remains correct IF physics.posY.current includes the margin offset.
-      const visualY = linePositions[index] + globalScroll + focalPointOffset;
-      const lineHeight = lineHeights[index];
+      // So visualY = linePositions[index] + physics.posY.current + focalPointOffset.
+      // This remains correct IF physics.posY.current includes the margin offset.
+
+      // UPDATE: physics.posY.current now includes the FULL absolute position (dynamic) + margins - scroll.
+      // So we should NOT add linePositions[index] anymore.
+      const visualY = physics.posY.current + focalPointOffset;
+      const lineHeight = currentLineHeights[index];
 
       // Culling
       if (visualY + lineHeight < -100 || visualY > height + 100) {
@@ -318,9 +334,8 @@ const LyricsView: React.FC<LyricsViewProps> = ({
       const physics = linesState.current.get(i);
       if (!physics) continue;
 
-      const visualY =
-        linePositions[i] + physics.posY.current + focalPointOffset;
-      const h = lineHeights[i];
+      const visualY = physics.posY.current + focalPointOffset;
+      const h = lyricLines[i].getCurrentHeight();
 
       if (clickY >= visualY && clickY <= visualY + h) {
         onSeekRequest(lyrics[i].time, true);
