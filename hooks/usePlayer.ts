@@ -259,8 +259,9 @@ export const usePlayer = ({
       const parsed = parseLyrics(result.lrc, result.tLrc);
       const metadataCount = result.metadata.length;
       const metadataLines = result.metadata.map((text, idx) => ({
-        time: 0.0001 * (metadataCount - idx),
+        time: 0.001 * (metadataCount - idx),
         text,
+        isMetadata: true,
       }));
       return [...metadataLines, ...parsed].sort((a, b) => a.time - b.time);
     },

@@ -303,14 +303,15 @@ export const fetchLyricsById = async (
       translationMetadata = result.metadata;
     }
 
-    const metadataSet = new Set([...originalMetadata, ...translationMetadata]);
-    if (lyricData.lyricUser?.nickname) {
-      metadataSet.add(`歌词贡献者: ${lyricData.lyricUser.nickname}`);
-    }
+    const metadataSet = Array.from(new Set([...originalMetadata, ...translationMetadata]))
+
     if (lyricData.transUser?.nickname) {
-      metadataSet.add(`翻译贡献者: ${lyricData.transUser.nickname}`);
+      metadataSet.unshift(`翻译贡献者: ${lyricData.transUser.nickname}`);
     }
 
+    if (lyricData.lyricUser?.nickname) {
+      metadataSet.unshift(`歌词贡献者: ${lyricData.lyricUser.nickname}`);
+    }
     return {
       lrc: cleanOriginal || originalLrc,
       tLrc: cleanTranslation,

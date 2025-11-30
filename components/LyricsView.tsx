@@ -306,6 +306,9 @@ const LyricsView: React.FC<LyricsViewProps> = ({
     const focalPointOffset = height * 0.25;
 
     for (let i = 0; i < lyricLines.length; i++) {
+      if (lyrics[i]?.isMetadata) {
+        continue;
+      }
       const physics = linesState.current.get(i);
       if (!physics) continue;
 
@@ -325,7 +328,7 @@ const LyricsView: React.FC<LyricsViewProps> = ({
 
   if (!lyrics.length) {
     return (
-      <div className="h-[95vh] lg:h-[65vh] flex flex-col items-center justify-center text-white/40 select-none">
+      <div className="h-[85vh] lg:h-[65vh] flex flex-col items-center justify-center text-white/40 select-none">
         {matchStatus === "matching" ? (
           <div className="animate-pulse">Syncing Lyrics...</div>
         ) : (
@@ -341,7 +344,7 @@ const LyricsView: React.FC<LyricsViewProps> = ({
   return (
     <div
       ref={containerRef}
-      className="relative h-[95vh] lg:h-[65vh] w-full overflow-hidden cursor-grab active:cursor-grabbing touch-none select-none"
+      className="relative h-[85vh] lg:h-[65vh] w-full overflow-hidden cursor-grab active:cursor-grabbing touch-none select-none"
       onWheel={handlers.onWheel}
       onTouchStart={handlers.onTouchStart}
       onTouchMove={handlers.onTouchMove}

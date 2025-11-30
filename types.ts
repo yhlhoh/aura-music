@@ -11,6 +11,7 @@ export interface LyricLine {
   words?: LyricWord[]; // For enhanced LRC animation of the main text
   isPreciseTiming?: boolean; // If true, end times are exact (from YRC) and shouldn't be auto-extended
   isInterlude?: boolean; // If true, this is an instrumental interlude line ("...")
+  isMetadata?: boolean; // If true, line represents metadata and shouldn't drive playback
 }
 
 export interface Song {

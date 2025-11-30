@@ -62,6 +62,17 @@ const SCALE_SPRING: SpringConfig = {
     precision: 0.001,
 };
 
+const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+
+const RUBBER_BAND_CONSTANT = 0.25;
+
+const rubberBand = (overdrag: number, dimension: number) => {
+    const abs = Math.abs(overdrag);
+    const cappedDimension = Math.max(dimension, 1);
+    const result = (1 - 1 / ((abs * RUBBER_BAND_CONSTANT) / cappedDimension + 1)) * cappedDimension;
+    return result * Math.sign(overdrag);
+};
+
 export const useLyricsPhysics = ({
     lyrics,
     audioRef,
@@ -79,6 +90,7 @@ export const useLyricsPhysics = ({
 
     // Main Scroll Spring (The "Camera")
     const springSystem = useRef(new SpringSystem({ scrollY: 0 }));
+    const scrollLimitsRef = useRef({ min: 0, max: 0 });
 
     const RESUME_DELAY_MS = 3000;
     const FOCAL_POINT_RATIO = 0.35; // 35% from top (matched to LyricsView)
@@ -92,6 +104,23 @@ export const useLyricsPhysics = ({
         touchVelocity: 0,
         targetScrollY: 0,
     });
+
+    const clampScrollValue = useCallback((value: number, allowRubber = false) => {
+        const { min, max } = scrollLimitsRef.current;
+        if (allowRubber) {
+            if (value < min) {
+                return min - rubberBand(min - value, containerHeight || 1);
+            }
+            if (value > max) {
+                return max + rubberBand(value - max, containerHeight || 1);
+            }
+            return value;
+        }
+        if (max <= min) {
+            return min;
+        }
+        return clamp(value, min, max);
+    }, [containerHeight]);
 
     const markScrollIdle = useCallback(() => {
         scrollState.current.lastInteractionTime = getNow() - RESUME_DELAY_MS - 10;
@@ -126,9 +155,16 @@ export const useLyricsPhysics = ({
             return;
         }
 
-        let idx = 0;
+        const fallbackIndex = lyrics.findIndex(line => !line.isMetadata);
+        let idx = fallbackIndex !== -1 ? fallbackIndex : (lyrics.length > 0 ? 0 : -1);
+
         for (let i = 0; i < lyrics.length; i++) {
-            if (currentTime >= lyrics[i].time) {
+            const line = lyrics[i];
+            if (line.isMetadata) {
+                continue;
+            }
+
+            if (currentTime >= line.time) {
                 idx = i;
             } else {
                 break;
@@ -168,6 +204,7 @@ export const useLyricsPhysics = ({
         // 1. Handle Global Scroll Physics
         const timeSinceInteraction = now - sState.lastInteractionTime;
         const userScrollActive = (sState.isDragging || timeSinceInteraction < RESUME_DELAY_MS);
+        const { min: minScroll, max: maxScroll } = scrollLimitsRef.current;
 
         // Calculate target scroll based on active index
         const computeActiveScrollTarget = () => {
@@ -196,16 +233,25 @@ export const useLyricsPhysics = ({
 
         if (userScrollActive) {
             if (!sState.isDragging && Math.abs(sState.touchVelocity) > 10) {
-                // Inertia scrolling
-                const newY = system.getCurrent("scrollY") + sState.touchVelocity * dt;
-                system.setValue("scrollY", newY);
-                sState.touchVelocity *= 0.92;
+                // Inertia scrolling with hard bounds
+                const proposedY = system.getCurrent("scrollY") + sState.touchVelocity * dt;
+                const boundedY = clampScrollValue(proposedY, false);
+                system.setValue("scrollY", boundedY);
+                if (boundedY !== proposedY) {
+                    sState.touchVelocity = 0;
+                } else {
+                    sState.touchVelocity *= 0.92;
+                }
             }
             targetGlobalScrollY = system.getCurrent("scrollY");
+            const needsRebound = !sState.isDragging && (targetGlobalScrollY < minScroll || targetGlobalScrollY > maxScroll);
+            if (needsRebound) {
+                targetGlobalScrollY = clampScrollValue(targetGlobalScrollY, false);
+            }
             // If user is interacting, we update the target to current to stop spring fighting
             system.setTarget("scrollY", targetGlobalScrollY, CAMERA_SPRING);
         } else {
-            targetGlobalScrollY = computeActiveScrollTarget();
+            targetGlobalScrollY = clampScrollValue(computeActiveScrollTarget(), false);
             // Smoothly interpolate to target using spring
             system.setTarget("scrollY", targetGlobalScrollY, CAMERA_SPRING);
         }
@@ -228,10 +274,19 @@ export const useLyricsPhysics = ({
         // Recalculate all positions based on current heights
         let currentY = 0;
         const currentPositions: number[] = [];
-        activeHeights.forEach(h => {
+        let contentBottom = 0;
+        activeHeights.forEach((h, idx) => {
             currentPositions.push(currentY);
             currentY += h;
+            const marginOffset = idx * marginY;
+            const bottom = currentY + marginOffset;
+            if (bottom > contentBottom) {
+                contentBottom = bottom;
+            }
         });
+
+        const maxScrollY = Math.max(0, contentBottom - containerHeight * (1 - FOCAL_POINT_RATIO));
+        scrollLimitsRef.current = { min: 0, max: Number.isFinite(maxScrollY) ? maxScrollY : 0 };
 
         linesState.current.forEach((state, index) => {
             // --- A. Position Physics ---
@@ -305,8 +360,9 @@ export const useLyricsPhysics = ({
             const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
             const dy = scrollState.current.touchLastY - clientY;
             const system = springSystem.current;
-            const newY = system.getCurrent("scrollY") + dy;
-            system.setValue("scrollY", newY);
+            const proposed = system.getCurrent("scrollY") + dy;
+            const bounded = clampScrollValue(proposed, true);
+            system.setValue("scrollY", bounded);
             scrollState.current.touchLastY = clientY;
             scrollState.current.touchVelocity = dy * 60;
             scrollState.current.lastInteractionTime = performance.now();
@@ -318,8 +374,9 @@ export const useLyricsPhysics = ({
         onWheel: (e: React.WheelEvent) => {
             scrollState.current.lastInteractionTime = performance.now();
             const system = springSystem.current;
-            const newY = system.getCurrent("scrollY") + e.deltaY;
-            system.setValue("scrollY", newY);
+            const proposed = system.getCurrent("scrollY") + e.deltaY;
+            const bounded = clampScrollValue(proposed, true);
+            system.setValue("scrollY", bounded);
         },
         onClick: () => {
             markScrollIdle();
