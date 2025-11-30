@@ -176,7 +176,6 @@ export const processLyricsDurations = (lyrics: LyricLine[]): LyricLine[] => {
  * Insert "..." interlude lines for long instrumental gaps.
  */
 export const insertInterludes = (lyrics: LyricLine[]): LyricLine[] => {
-  console.log(lyrics)
 
   if (lyrics.length === 0) return lyrics;
 

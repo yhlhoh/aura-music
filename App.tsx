@@ -44,7 +44,6 @@ const App: React.FC = () => {
     playIndex,
     addSongAndPlay,
     handleAudioEnded,
-    isSeeking,
   } = player;
 
   const [showPlaylist, setShowPlaylist] = useState(false);
@@ -289,7 +288,6 @@ const App: React.FC = () => {
         audioRef={audioRef}
         isPlaying={playState === PlayState.PLAYING}
         currentTime={currentTime}
-        isScrubbing={isSeeking}
         onSeekRequest={handleSeek}
         matchStatus={matchStatus}
       />

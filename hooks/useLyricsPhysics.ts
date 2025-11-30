@@ -3,7 +3,7 @@ import { LyricLine } from "../types";
 import { SpringSystem, SpringConfig, CAMERA_SPRING } from "../services/springSystem";
 
 const getNow = () =>
-  typeof performance !== "undefined" ? performance.now() : Date.now();
+    typeof performance !== "undefined" ? performance.now() : Date.now();
 
 interface UseLyricsPhysicsProps {
     lyrics: LyricLine[];
@@ -14,7 +14,6 @@ interface UseLyricsPhysicsProps {
     linePositions: number[]; // Absolute Y positions of lines (packed, no margins)
     lineHeights: number[];   // Heights of lines for centering logic
     marginY: number;         // Base margin between lines
-    isScrubbing: boolean;
 }
 
 interface SpringState {
@@ -72,7 +71,6 @@ export const useLyricsPhysics = ({
     linePositions,
     lineHeights,
     marginY,
-    isScrubbing,
 }: UseLyricsPhysicsProps) => {
     const [activeIndex, setActiveIndex] = useState(-1);
 
@@ -95,44 +93,49 @@ export const useLyricsPhysics = ({
         targetScrollY: 0,
     });
 
-    const markScrollIdle = () => {
+    const markScrollIdle = useCallback(() => {
         scrollState.current.lastInteractionTime = getNow() - RESUME_DELAY_MS - 10;
         scrollState.current.isDragging = false;
         scrollState.current.touchVelocity = 0;
-    };
+    }, []);
 
     // Initialize line states
     useEffect(() => {
-        const currentIds = new Set(lyrics.map((_, i) => i));
-        for (const id of linesState.current.keys()) {
-            if (!currentIds.has(id)) {
-                linesState.current.delete(id);
-            }
-        }
+        const newState = new Map<number, LinePhysicsState>();
         lyrics.forEach((_, i) => {
-            if (!linesState.current.has(i)) {
-                linesState.current.set(i, {
-                    posY: { current: linePositions[i] || 0, velocity: 0, target: linePositions[i] || 0 },
-                    scale: { current: 1, velocity: 0, target: 1 },
-                });
-            }
+            const initialPos = linePositions[i] || 0;
+            newState.set(i, {
+                posY: { current: initialPos, velocity: 0, target: initialPos },
+                scale: { current: 1, velocity: 0, target: 1 },
+            });
         });
-    }, [lyrics.length]);
+        linesState.current = newState;
+    }, [lyrics, linePositions]);
+
+    useEffect(() => {
+        markScrollIdle();
+        springSystem.current.setValue("scrollY", 0);
+    }, [lyrics, linePositions, markScrollIdle]);
 
     // Calculate Active Index
     useEffect(() => {
-        if (!lyrics.length) return;
-        let idx = -1;
+        if (!lyrics.length) {
+            if (activeIndex !== -1) {
+                setActiveIndex(-1);
+            }
+            return;
+        }
+
+        let idx = 0;
         for (let i = 0; i < lyrics.length; i++) {
             if (currentTime >= lyrics[i].time) {
-                const nextTime = lyrics[i + 1]?.time ?? Infinity;
-                if (currentTime < nextTime) {
-                    idx = i;
-                    break;
-                }
+                idx = i;
+            } else {
+                break;
             }
         }
-        if (idx !== -1 && idx !== activeIndex) {
+
+        if (idx !== activeIndex) {
             setActiveIndex(idx);
         }
     }, [currentTime, lyrics, activeIndex]);
@@ -191,11 +194,7 @@ export const useLyricsPhysics = ({
 
         let targetGlobalScrollY = system.getCurrent("scrollY");
 
-        if (isScrubbing) {
-            targetGlobalScrollY = computeActiveScrollTarget();
-            // Instant jump when scrubbing
-            system.setValue("scrollY", targetGlobalScrollY);
-        } else if (userScrollActive) {
+        if (userScrollActive) {
             if (!sState.isDragging && Math.abs(sState.touchVelocity) > 10) {
                 // Inertia scrolling
                 const newY = system.getCurrent("scrollY") + sState.touchVelocity * dt;
@@ -216,7 +215,8 @@ export const useLyricsPhysics = ({
 
         // Use the current interpolated value as the actual scroll position
         const currentGlobalScrollY = system.getCurrent("scrollY");
-        const isUserInteracting = userScrollActive || isScrubbing;
+        const isUserInteracting = userScrollActive;
+
 
         // 2. Update All Lines
         const scrollVelocity = system.getVelocity("scrollY");
@@ -248,32 +248,27 @@ export const useLyricsPhysics = ({
                 state.posY.target = -currentGlobalScrollY + targetPos + (index * marginY) + elasticMarginOffset;
             }
 
-            if (isScrubbing) {
+            const displacement = state.posY.current - state.posY.target;
+
+            // If displacement is huge (e.g. seek), snap
+            if (Math.abs(displacement) > containerHeight * 2) {
                 state.posY.current = state.posY.target;
                 state.posY.velocity = 0;
-            } else {
-                const displacement = state.posY.current - state.posY.target;
-
-                // If displacement is huge (e.g. seek), snap
-                if (Math.abs(displacement) > containerHeight * 2) {
-                    state.posY.current = state.posY.target;
-                    state.posY.velocity = 0;
-                }
-
-                let posConfig: SpringConfig;
-                const isMovingDown = state.posY.target > state.posY.current + 1;
-
-                if (isUserInteracting) {
-                    posConfig = { mass: 0.5, stiffness: 400, damping: 35, precision: 0.1 };
-                } else if (isMovingDown) {
-                    posConfig = { mass: 1, stiffness: 350, damping: 40, precision: 0.1 };
-                } else {
-                    const relativeIndex = index - activeIndex;
-                    posConfig = getLinePosSpring(relativeIndex);
-                }
-
-                updateSpring(state.posY, posConfig, dt);
             }
+
+            let posConfig: SpringConfig;
+            const isMovingDown = state.posY.target > state.posY.current + 1;
+
+            if (isUserInteracting) {
+                posConfig = { mass: 0.5, stiffness: 400, damping: 35, precision: 0.1 };
+            } else if (isMovingDown) {
+                posConfig = { mass: 1, stiffness: 350, damping: 40, precision: 0.1 };
+            } else {
+                const relativeIndex = index - activeIndex;
+                posConfig = getLinePosSpring(relativeIndex);
+            }
+
+            updateSpring(state.posY, posConfig, dt);
 
             // --- B. Scale Physics ---
             const lineY = currentPositions[index] || 0;
@@ -290,14 +285,9 @@ export const useLyricsPhysics = ({
             }
 
             state.scale.target = targetScale;
-            if (isScrubbing) {
-                state.scale.current = state.scale.target;
-                state.scale.velocity = 0;
-            } else {
-                updateSpring(state.scale, SCALE_SPRING, dt);
-            }
+            updateSpring(state.scale, SCALE_SPRING, dt);
         });
-    }, [activeIndex, containerHeight, isScrubbing, linePositions, lineHeights]);
+    }, [activeIndex, containerHeight, linePositions, lineHeights]);
 
     // Interaction Handlers
     const handlers = {

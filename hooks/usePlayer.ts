@@ -58,12 +58,6 @@ export const usePlayer = ({
   const [matchStatus, setMatchStatus] = useState<MatchStatus>("idle");
   const audioRef = useRef<HTMLAudioElement>(null);
   const isSeekingRef = useRef(false);
-  const [isSeeking, setIsSeeking] = useState(false);
-
-  const setSeekingState = useCallback((value: boolean) => {
-    isSeekingRef.current = value;
-    setIsSeeking(value);
-  }, []);
 
   const currentSong = queue[currentIndex] ?? null;
   const accentColor = currentSong?.colors?.[0] || "#a855f7";
@@ -137,13 +131,13 @@ export const usePlayer = ({
 
       if (defer) {
         // Only update visual state during drag, don't actually seek
-        setSeekingState(true);
+        isSeekingRef.current = true;
         setCurrentTime(time);
       } else {
         // Actually perform the seek
         audioRef.current.currentTime = time;
         setCurrentTime(time);
-        setSeekingState(false);
+        isSeekingRef.current = false;
         if (playImmediately) {
           audioRef.current
             .play()
@@ -152,7 +146,7 @@ export const usePlayer = ({
         }
       }
     },
-    [setSeekingState],
+    [],
   );
 
   const handleTimeUpdate = useCallback(() => {
@@ -479,7 +473,6 @@ export const usePlayer = ({
     duration,
     playMode,
     matchStatus,
-    isSeeking,
     accentColor,
     speed,
     preservesPitch,
