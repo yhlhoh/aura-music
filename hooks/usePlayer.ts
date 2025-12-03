@@ -121,6 +121,20 @@ export const usePlayer = ({
     }
   }, [playState]);
 
+  const play = useCallback(() => {
+    if (!audioRef.current) return;
+    audioRef.current
+      .play()
+      .catch((err) => console.error("Play failed", err));
+    setPlayState(PlayState.PLAYING);
+  }, []);
+
+  const pause = useCallback(() => {
+    if (!audioRef.current) return;
+    audioRef.current.pause();
+    setPlayState(PlayState.PAUSED);
+  }, []);
+
   const handleSeek = useCallback(
     (
       time: number,
@@ -495,5 +509,7 @@ export const usePlayer = ({
     togglePreservesPitch: handleTogglePreservesPitch,
     pitch: 0, // Default pitch
     setPitch: (pitch: number) => { }, // Placeholder
+    play,
+    pause,
   };
 };

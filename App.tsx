@@ -11,6 +11,7 @@ import SearchModal from "./components/SearchModal";
 import { usePlaylist } from "./hooks/usePlaylist";
 import { usePlayer } from "./hooks/usePlayer";
 import { keyboardRegistry } from "./services/keyboardRegistry";
+import MediaSessionController from "./components/MediaSessionController";
 
 const App: React.FC = () => {
   const { toast } = useToast();
@@ -44,6 +45,8 @@ const App: React.FC = () => {
     playIndex,
     addSongAndPlay,
     handleAudioEnded,
+    play,
+    pause,
   } = player;
 
   const [showPlaylist, setShowPlaylist] = useState(false);
@@ -334,6 +337,19 @@ const App: React.FC = () => {
         onSpeedChange={player.setSpeed}
         onToggleVolumeDialog={() => setShowVolumePopup((prev) => !prev)}
         onToggleSpeedDialog={() => setShowSettingsPopup((prev) => !prev)}
+      />
+
+      <MediaSessionController
+        currentSong={currentSong ?? null}
+        playState={playState}
+        currentTime={currentTime}
+        duration={duration}
+        playbackRate={player.speed}
+        onPlay={play}
+        onPause={pause}
+        onNext={playNext}
+        onPrev={playPrev}
+        onSeek={handleSeek}
       />
 
       {/* Top Bar */}
