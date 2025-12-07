@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useTransition, animated } from '@react-spring/web';
 import { Song } from '../types';
 import { CheckIcon, PlusIcon, QueueIcon, TrashIcon, SelectAllIcon } from './Icons';
+
 import { useKeyboardScope } from '../hooks/useKeyboardScope';
 import ImportMusicDialog from './ImportMusicDialog';
 import SmartImage from './SmartImage';
@@ -213,24 +214,75 @@ const PlaylistPanel: React.FC<PlaylistPanelProps> = ({
                     {/* iOS 18 Style Header */}
                     <div className="px-5 pt-5 pb-3 shrink-0 flex items-center justify-between bg-transparent border-b border-white/5">
                         <div className="flex flex-col">
-                            <h3 className="text-white text-lg font-bold leading-none tracking-tight">Playing Next</h3>
-                            <span className="text-white/40 text-xs font-medium mt-1">{queue.length} Songs</span>
+                            <h3 className="text-white text-lg font-bold leading-none tracking-tight">即将播放</h3>
+                            <span className="text-white/40 text-xs font-medium mt-1">{queue.length} 首歌曲</span>
                         </div>
 
                         <div className="flex items-center gap-2">
+                            {/* 导入导出歌单按钮 */}
+                            <button
+                                onClick={() => {
+                                    // 创建文件选择框
+                                    const input = document.createElement('input');
+                                    input.type = 'file';
+                                    input.accept = '.json,application/json';
+                                    input.onchange = async (e: any) => {
+                                        const file = e.target.files[0];
+                                        if (!file) return;
+                                        try {
+                                            const text = await file.text();
+                                            const list = JSON.parse(text);
+                                            if (Array.isArray(list)) {
+                                                // 触发批量导入，假设 onImport 支持批量（如不支持可单独处理）
+                                                // 这里只弹窗提示，实际导入逻辑需主程序支持
+                                                alert('已读取 ' + list.length + ' 首歌曲，需开发批量导入逻辑');
+                                            } else {
+                                                alert('文件格式不正确');
+                                            }
+                                        } catch {
+                                            alert('文件解析失败');
+                                        }
+                                    };
+                                    input.click();
+                                }}
+                                className="w-8 h-8 rounded-full flex items-center justify-center transition-all text-white/50 hover:text-white hover:bg-white/10"
+                                title="导入歌单"
+                            >
+                                <span className="text-xs">导入</span>
+                            </button>
+                            <button
+                                onClick={() => {
+                                    const data = JSON.stringify(queue, null, 2);
+                                    const blob = new Blob([data], { type: 'application/json' });
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = `playlist-${new Date().toISOString().slice(0,10)}.json`;
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    setTimeout(() => {
+                                        document.body.removeChild(a);
+                                        URL.revokeObjectURL(url);
+                                    }, 100);
+                                }}
+                                className="w-8 h-8 rounded-full flex items-center justify-center transition-all text-white/50 hover:text-white hover:bg-white/10"
+                                title="导出歌单"
+                            >
+                                <span className="text-xs">导出</span>
+                            </button>
                             {isEditing ? (
                                 <>
                                     <button
                                         onClick={handleSelectAll}
                                         className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${selectedIds.size === queue.length && queue.length > 0 ? 'text-white bg-white/10' : 'text-white/50 hover:text-white hover:bg-white/10'}`}
-                                        title="Select All"
+                                        title="全选"
                                     >
                                         <SelectAllIcon className="w-5 h-5" />
                                     </button>
                                     <button
                                         onClick={handleDelete}
                                         className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${selectedIds.size > 0 ? 'text-red-400 hover:bg-red-500/10' : 'text-white/20 cursor-not-allowed'}`}
-                                        title="Delete Selected"
+                                        title="删除所选"
                                         disabled={selectedIds.size === 0}
                                     >
                                         <TrashIcon className="w-5 h-5" />
@@ -239,7 +291,7 @@ const PlaylistPanel: React.FC<PlaylistPanelProps> = ({
                                         onClick={() => setIsEditing(false)}
                                         className="w-8 h-8 rounded-full flex items-center justify-center transition-all hover:bg-white/10"
                                         style={{ color: accentColor }}
-                                        title="Done"
+                                        title="完成"
                                     >
                                         <CheckIcon className="w-5 h-5" />
                                     </button>
@@ -249,14 +301,14 @@ const PlaylistPanel: React.FC<PlaylistPanelProps> = ({
                                     <button
                                         onClick={() => setIsAdding(true)}
                                         className="w-8 h-8 rounded-full flex items-center justify-center transition-all text-white/50 hover:text-white hover:bg-white/10"
-                                        title="Add from URL"
+                                        title="通过链接添加"
                                     >
                                         <PlusIcon className="w-5 h-5" />
                                     </button>
                                     <button
                                         onClick={() => setIsEditing(true)}
                                         className="w-8 h-8 rounded-full flex items-center justify-center transition-all text-white/50 hover:text-white hover:bg-white/10"
-                                        title="Edit List"
+                                        title="编辑列表"
                                     >
                                         <QueueIcon className="w-5 h-5" />
                                     </button>
@@ -273,7 +325,7 @@ const PlaylistPanel: React.FC<PlaylistPanelProps> = ({
                     >
                         {queue.length === 0 ? (
                             <div className="flex flex-col items-center justify-center h-32 text-white/30 space-y-2">
-                                <p className="text-xs font-medium">Queue is empty</p>
+                                <p className="text-xs font-medium">队列为空</p>
                             </div>
                         ) : (
                             <div style={{ height: `${totalHeight}px`, position: 'relative' }}>

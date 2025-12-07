@@ -178,6 +178,7 @@ const App: React.FC = () => {
   };
 
   const handleAddToQueue = (song: Song) => {
+    console.log('add', song);
     playlist.setQueue((prev) => [...prev, song]);
     playlist.setOriginalQueue((prev) => [...prev, song]);
   };

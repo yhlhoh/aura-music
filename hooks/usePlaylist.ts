@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { Song } from "../types";
 import {
   extractColors,
@@ -39,7 +39,6 @@ const levenshteinDistance = (str1: string, str2: string): number => {
 
   return matrix[len1][len2];
 };
-
 // Calculate similarity score (0-1, higher is better)
 const calculateSimilarity = (str1: string, str2: string): number => {
   const distance = levenshteinDistance(str1, str2);
@@ -47,7 +46,6 @@ const calculateSimilarity = (str1: string, str2: string): number => {
   if (maxLen === 0) return 1;
   return 1 - distance / maxLen;
 };
-
 export interface ImportResult {
   success: boolean;
   message?: string;
@@ -55,8 +53,22 @@ export interface ImportResult {
 }
 
 export const usePlaylist = () => {
-  const [queue, setQueue] = useState<Song[]>([]);
+  // 自动恢复 queue
+  const [queue, setQueue] = useState<Song[]>(() => {
+    try {
+      const saved = localStorage.getItem('aura_playlist_queue');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [];
+  });
   const [originalQueue, setOriginalQueue] = useState<Song[]>([]);
+
+  // 自动存储 queue
+  useEffect(() => {
+    try {
+      localStorage.setItem('aura_playlist_queue', JSON.stringify(queue));
+    } catch {}
+  }, [queue]);
 
   const updateSongInQueue = useCallback(
     (id: string, updates: Partial<Song>) => {

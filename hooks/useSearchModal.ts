@@ -6,8 +6,9 @@ import {
   useNeteaseSearchProvider,
   NeteaseSearchProviderExtended,
 } from "./useNeteaseSearchProvider";
+import { useQqSearchProvider } from "./useQqSearchProvider";
 
-export type SearchSource = "queue" | "netease";
+export type SearchSource = "queue" | "netease" | "qqmusic";
 export type SearchResultItem = Song | NeteaseTrackInfo;
 
 interface ContextMenuState {
@@ -45,14 +46,16 @@ export const useSearchModal = ({
   // Search Providers
   const queueProvider = useQueueSearchProvider({ queue });
   const neteaseProvider = useNeteaseSearchProvider();
+  const qqmusicProvider = useQqSearchProvider();
 
   // Queue search results (real-time)
   const [queueResults, setQueueResults] = useState<{ s: Song; i: number }[]>(
     [],
   );
 
-  // Offset for Netease pagination
+  // Offset for Netease/QQMusic pagination
   const [neteaseOffset, setNeteaseOffset] = useState(0);
+  const [qqOffset, setQqOffset] = useState(0);
   const LIMIT = 30;
 
   // Update queue results in real-time
@@ -65,6 +68,10 @@ export const useSearchModal = ({
         });
         setQueueResults(mappedResults);
       });
+    }
+    if (activeTab === "qqmusic" && query.trim()) {
+      qqmusicProvider.performSearch(query, 1, LIMIT);
+      setQqOffset(0);
     }
   }, [query, activeTab, queue]);
 
@@ -96,15 +103,28 @@ export const useSearchModal = ({
     setNeteaseOffset(nextOffset);
   }, [neteaseProvider, neteaseOffset, query]);
 
+  const loadMoreQq = useCallback(async () => {
+    if (qqmusicProvider.isLoading || !qqmusicProvider.hasMore) return;
+    const nextOffset = qqOffset + LIMIT;
+    await qqmusicProvider.loadMore(query, nextOffset, LIMIT);
+    setQqOffset(nextOffset);
+  }, [qqmusicProvider, qqOffset, query]);
+
   const handleScroll = useCallback(
     (e: React.UIEvent<HTMLDivElement>) => {
-      if (activeTab !== "netease") return;
-      const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
-      if (scrollHeight - scrollTop - clientHeight < 100) {
-        loadMoreNetease();
+      if (activeTab === "netease") {
+        const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
+        if (scrollHeight - scrollTop - clientHeight < 100) {
+          loadMoreNetease();
+        }
+      } else if (activeTab === "qqmusic") {
+        const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
+        if (scrollHeight - scrollTop - clientHeight < 100) {
+          loadMoreQq();
+        }
       }
     },
-    [activeTab, loadMoreNetease],
+    [activeTab, loadMoreNetease, loadMoreQq],
   );
 
   // --- Navigation ---
@@ -185,6 +205,7 @@ export const useSearchModal = ({
     [currentSong],
   );
 
+
   // Determine what to show in results area
   const showNeteasePrompt =
     activeTab === "netease" &&
@@ -207,6 +228,28 @@ export const useSearchModal = ({
     !neteaseProvider.hasSearched &&
     query.trim().length === 0;
 
+  // QQ音乐相关
+  const showQqPrompt =
+    activeTab === "qqmusic" &&
+    !qqmusicProvider.hasSearched &&
+    query.trim().length > 0;
+
+  const showQqEmpty =
+    activeTab === "qqmusic" &&
+    qqmusicProvider.hasSearched &&
+    qqmusicProvider.results.length === 0 &&
+    !qqmusicProvider.isLoading;
+
+  const showQqLoading =
+    activeTab === "qqmusic" &&
+    qqmusicProvider.isLoading &&
+    qqmusicProvider.results.length === 0;
+
+  const showQqInitial =
+    activeTab === "qqmusic" &&
+    !qqmusicProvider.hasSearched &&
+    query.trim().length === 0;
+
   return {
     // State
     query,
@@ -219,6 +262,7 @@ export const useSearchModal = ({
     // Providers
     queueProvider,
     neteaseProvider,
+    qqmusicProvider,
 
     // Results
     queueResults,
@@ -249,6 +293,10 @@ export const useSearchModal = ({
     showNeteaseEmpty,
     showNeteaseInitial,
     showNeteaseLoading,
+    showQqPrompt,
+    showQqEmpty,
+    showQqInitial,
+    showQqLoading,
 
     // Constants
     LIMIT,

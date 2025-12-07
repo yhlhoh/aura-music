@@ -319,7 +319,7 @@ const Controls: React.FC<ControlsProps> = ({
         {coverUrl ? (
           <SmartImage
             src={coverUrl}
-            alt="Album Art"
+            alt="专辑封面"
             containerClassName="absolute inset-0"
             imgClassName="w-full h-full object-cover"
             loading="eager"
@@ -327,7 +327,7 @@ const Controls: React.FC<ControlsProps> = ({
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-white/20">
             <div className="text-8xl mb-4">♪</div>
-            <p className="text-sm">No Music Loaded</p>
+            <p className="text-sm">未加载音乐</p>
           </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent pointer-events-none"></div>
@@ -431,7 +431,7 @@ const Controls: React.FC<ControlsProps> = ({
           <button
             onClick={onToggleMode}
             className="p-2 rounded-full hover:bg-white/10 transition-colors"
-            title="Playback Mode"
+            title="播放模式"
           >
             {getModeIcon()}
           </button>
@@ -442,7 +442,7 @@ const Controls: React.FC<ControlsProps> = ({
               onClick={() => setShowVolumePopup(!showVolumePopup)}
               className={`p-2 rounded-full hover:bg-white/10 transition-colors ${showVolumePopup ? "text-white" : "text-white/60 hover:text-white"
                 }`}
-              title="Volume"
+              title="音量"
             >
               {getVolumeButtonIcon()}
             </button>
@@ -464,7 +464,7 @@ const Controls: React.FC<ControlsProps> = ({
           <button
             onClick={onPrev}
             className="text-white hover:text-white/70 transition-colors active:scale-90 duration-200"
-            aria-label="Previous"
+            aria-label="上一曲"
           >
             <PrevIcon className="w-9 h-9" />
           </button>
@@ -496,7 +496,7 @@ const Controls: React.FC<ControlsProps> = ({
           <button
             onClick={onNext}
             className="text-white hover:text-white/70 transition-colors active:scale-90 duration-200"
-            aria-label="Next"
+            aria-label="下一曲"
           >
             <NextIcon className="w-9 h-9" />
           </button>
@@ -507,7 +507,7 @@ const Controls: React.FC<ControlsProps> = ({
               onClick={() => setShowSettingsPopup(!showSettingsPopup)}
               className={`p-2 rounded-full hover:bg-white/10 transition-colors ${showSettingsPopup ? "text-white" : "text-white/60 hover:text-white"
                 }`}
-              title="Settings"
+              title="设置"
             >
               <SettingsIcon className="w-5 h-5" />
             </button>
@@ -530,7 +530,7 @@ const Controls: React.FC<ControlsProps> = ({
           <button
             onClick={onTogglePlaylist}
             className="p-2 rounded-full hover:bg-white/10 transition-colors text-white/60 hover:text-white"
-            title="Queue"
+            title="播放队列"
           >
             <QueueIcon className="w-5 h-5" />
           </button>
@@ -649,7 +649,7 @@ const SettingsPopup: React.FC<SettingsPopupProps> = ({
             {speed.toFixed(2)}x
           </div>
         </div>
-        <span className="text-[10px] font-medium text-white/60">Speed</span>
+        <span className="text-[10px] font-medium text-white/60">速度</span>
       </div>
 
       {/* Toggle Preserves Pitch */}
@@ -658,14 +658,14 @@ const SettingsPopup: React.FC<SettingsPopupProps> = ({
           onClick={onTogglePreservesPitch}
           className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors duration-200 ${preservesPitch ? "bg-white/20 text-white" : "bg-white text-black"
             }`}
-          title={preservesPitch ? "Tone Preserved" : "Vinyl Mode"}
+          title={preservesPitch ? "保持音调" : "黑胶模式"}
         >
           <span className="text-xs font-bold">
-            {preservesPitch ? "Dig" : "Vin"}
+            {preservesPitch ? "数" : "胶"}
           </span>
         </button>
         <span className="text-[10px] font-medium text-white/60 text-center leading-tight">
-          {preservesPitch ? "Digital" : "Vinyl"}
+          {preservesPitch ? "数字" : "黑胶"}
         </span>
       </div>
     </animated.div>

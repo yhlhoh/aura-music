@@ -112,7 +112,7 @@ const TopBar: React.FC<TopBarProps> = ({
             <AuraLogo className="w-full h-full" />
           </div>
           <h1 className="text-white/90 font-bold tracking-wider text-sm uppercase hidden sm:block drop-shadow-md">
-            Aura Music
+            灵韵音乐
           </h1>
         </div>
 
@@ -124,7 +124,7 @@ const TopBar: React.FC<TopBarProps> = ({
           <button
             onClick={onSearchClick}
             className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-xl border border-white/10 flex items-center justify-center text-white/80 hover:bg-white/20 hover:text-white transition-all shadow-sm"
-            title="Search (Cmd+K)"
+            title="搜索（Cmd+K）"
           >
             <SearchIcon className="w-5 h-5" />
           </button>
@@ -134,7 +134,7 @@ const TopBar: React.FC<TopBarProps> = ({
             onClick={() => fileInputRef.current?.click()}
             disabled={disabled}
             className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-xl border border-white/10 flex items-center justify-center text-white/80 hover:bg-white/20 hover:text-white transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Import Local Files"
+            title="导入本地文件"
           >
             <CloudDownloadIcon className="w-5 h-5" />
           </button>
@@ -143,7 +143,7 @@ const TopBar: React.FC<TopBarProps> = ({
           <button
             onClick={() => setIsAboutOpen(true)}
             className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-xl border border-white/10 flex items-center justify-center text-white/80 hover:bg-white/20 hover:text-white transition-all shadow-sm"
-            title="About Aura Music"
+            title="关于灵韵音乐"
           >
             <InfoIcon className="w-5 h-5" />
           </button>
@@ -152,7 +152,7 @@ const TopBar: React.FC<TopBarProps> = ({
           <button
             onClick={toggleFullscreen}
             className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-xl border border-white/10 flex items-center justify-center text-white/80 hover:bg-white/20 hover:text-white transition-all shadow-sm"
-            title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+            title={isFullscreen ? "退出全屏" : "进入全屏"}
           >
             <FullscreenIcon className="w-5 h-5" isFullscreen={isFullscreen} />
           </button>

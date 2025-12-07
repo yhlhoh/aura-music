@@ -58,14 +58,10 @@ const ImportMusicDialog: React.FC<ImportMusicDialogProps> = ({
           </div>
 
           <h3 className="text-xl font-bold text-white tracking-tight">
-            Import Music
+            导入音乐
           </h3>
           <p className="text-white/60 text-[15px] mt-2 leading-relaxed px-2">
-            Paste a{" "}
-            <span className="text-white/90 font-medium">
-              Netease Cloud Music
-            </span>{" "}
-            song or playlist link to add to queue.
+            粘贴 <span className="text-white/90 font-medium">网易云音乐</span> 的歌曲或歌单链接以添加到队列。
           </p>
 
           <input
@@ -90,7 +86,7 @@ const ImportMusicDialog: React.FC<ImportMusicDialogProps> = ({
             onClick={handleClose}
             className="py-4 text-[17px] text-white/60 font-medium hover:bg-white/5 transition-colors active:bg-white/10"
           >
-            Cancel
+            取消
           </button>
           <button
             onClick={handleImport}
@@ -122,10 +118,10 @@ const ImportMusicDialog: React.FC<ImportMusicDialogProps> = ({
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   ></path>
                 </svg>
-                <span>Importing...</span>
+                <span>正在导入...</span>
               </>
             ) : (
-              "Import"
+              "导入"
             )}
           </button>
         </div>

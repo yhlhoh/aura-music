@@ -239,15 +239,15 @@ const SearchModal: React.FC<SearchModalProps> = ({
   return createPortal(
     <div
       className="fixed inset-0 z-[9999] flex items-center justify-center px-4 select-none font-sans"
-      onMouseDown={(e) => {
-        const target = e.target as HTMLElement;
-        if (!modalRef.current?.contains(target)) {
-          onClose();
-        }
-        if (!target.closest(".context-menu-container")) {
-          search.closeContextMenu();
-        }
-      }}
+      // onMouseDown={(e) => {
+      //   const target = e.target as HTMLElement;
+      //   if (!modalRef.current?.contains(target)) {
+      //     onClose();
+      //   }
+      //   if (!target.closest(".context-menu-container")) {
+      //     search.closeContextMenu();
+      //   }
+      // }}
     >
       <style>{SEQUOIA_SCROLLBAR_STYLES}</style>
       <style>{ANIMATION_STYLES}</style>
@@ -279,11 +279,10 @@ const SearchModal: React.FC<SearchModalProps> = ({
             <div
               className="absolute top-1 bottom-1 rounded-[6px] bg-white/15 shadow-[0_1px_2px_rgba(0,0,0,0.1)] transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)]"
               style={{
-                left: search.activeTab === "queue" ? "4px" : "50%",
-                width: "calc(50% - 4px)",
+                left: search.activeTab === "queue" ? "4px" : search.activeTab === "netease" ? "calc(33.33% + 4px)" : "calc(66.66% + 4px)",
+                width: "calc(33.33% - 4px)",
               }}
             />
-
             <button
               onClick={() => {
                 search.setActiveTab("queue");
@@ -306,6 +305,17 @@ const SearchModal: React.FC<SearchModalProps> = ({
             >
               {search.neteaseProvider.label}
             </button>
+            <button
+              onClick={() => {
+                search.setActiveTab("qqmusic");
+              }}
+              className={`
+                        relative flex-1 py-1.5 text-[13px] font-medium transition-colors duration-200 z-10
+                        ${search.activeTab === "qqmusic" ? "text-white" : "text-white/50 hover:text-white/70"}
+                    `}
+            >
+              {search.qqmusicProvider.label}
+            </button>
           </div>
 
           {/* Search Bar */}
@@ -320,8 +330,10 @@ const SearchModal: React.FC<SearchModalProps> = ({
               onChange={(e) => search.setQuery(e.target.value)}
               placeholder={
                 search.activeTab === "netease"
-                  ? "Search online..."
-                  : "Filter queue..."
+                  ? "在线搜索网易云…"
+                  : search.activeTab === "qqmusic"
+                  ? "在线搜索QQ音乐…"
+                  : "筛选队列…"
               }
               className="
                         w-full pl-12 pr-4 py-3.5
@@ -348,7 +360,7 @@ const SearchModal: React.FC<SearchModalProps> = ({
             <div className="relative flex flex-col gap-1">
               {search.queueResults.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-64 text-white/20">
-                  <span className="text-lg">No songs in queue</span>
+                  <span className="text-lg">队列中没有歌曲</span>
                 </div>
               ) : (
                 <>
@@ -374,7 +386,7 @@ const SearchModal: React.FC<SearchModalProps> = ({
                         }}
                         onClick={() => handleSelection(idx)}
                         onContextMenu={(e) =>
-                          search.openContextMenu(e, s, "queue")
+                          (console.log('右键队列项', s), search.openContextMenu(e, s, "queue"))
                         }
                         className={`
                                         relative z-10 group flex items-center gap-3 p-3 rounded-[10px] cursor-pointer
@@ -454,11 +466,315 @@ const SearchModal: React.FC<SearchModalProps> = ({
                 <div className="flex flex-col items-center justify-center h-64 text-white/30">
                   <SearchIcon className="w-12 h-12 mb-4 opacity-20" />
                   <span className="text-base font-medium">
-                    Press{" "}
-                    <kbd className="px-2 py-1 bg-white/10 rounded text-white/60">
-                      Enter
-                    </kbd>{" "}
-                    to search
+                    按 <kbd className="px-2 py-1 bg-white/10 rounded text-white/60">Enter</kbd> 搜索
+                  </span>
+                </div>
+              )}
+              {/* No results after search */}
+              {search.showNeteaseEmpty && (
+                <div className="flex flex-col items-center justify-center h-64 text-white/20">
+                  <SearchIcon className="w-12 h-12 mb-4 opacity-20" />
+                  <span className="text-base font-medium">
+                    未找到匹配项
+                  </span>
+                </div>
+              )}
+              {/* Loading State */}
+              {search.showNeteaseLoading && (
+                <div className="flex flex-col items-center justify-center h-64 text-white/20">
+                  <div className="w-8 h-8 border-2 border-white/20 border-t-white/60 rounded-full animate-spin mb-4"></div>
+                  <span className="text-base font-medium">搜索中…</span>
+                </div>
+              )}
+              {/* Initial empty state */}
+              {search.showNeteaseInitial && (
+                <div className="flex flex-col items-center justify-center h-64 text-white/20">
+                  <SearchIcon className="w-12 h-12 mb-4 opacity-20" />
+                  <span className="text-base font-medium">
+                    搜索云音乐
+                  </span>
+                </div>
+              )}
+              {/* Results list */}
+              {search.neteaseProvider.results.length > 0 && (
+                <>
+                  {/* Floating Selection Background */}
+                  {search.selectedIndex >= 0 && search.itemRefs.current[search.selectedIndex] && (
+                    <div
+                      className="absolute left-0 right-0 bg-white/25 backdrop-blur-md rounded-[10px] pointer-events-none transition-all duration-200 ease-out"
+                      style={{
+                        top: `${search.itemRefs.current[search.selectedIndex]?.offsetTop || 0}px`,
+                        height: `${search.itemRefs.current[search.selectedIndex]?.offsetHeight || 56}px`,
+                        zIndex: 0,
+                      }}
+                    />
+                  )}
+                  {search.neteaseProvider.results.map((track, idx) => {
+                    const nowPlaying = search.isNowPlaying(track);
+                    return (
+                      <div
+                        key={`${track.id}-${idx}`}
+                        ref={(el) => {
+                          search.itemRefs.current[idx] = el;
+                        }}
+                        onClick={() => handleSelection(idx)}
+                        onContextMenu={(e) =>
+                          (console.log('右键云音乐项', track), search.openContextMenu(e, track, "netease"))
+                        }
+                        className={`
+                                        relative z-10 group flex items-center gap-3 p-3 rounded-[10px] cursor-pointer
+                                        ${search.selectedIndex === idx ? "text-white" : "hover:bg-white/5 hover:transition-colors hover:duration-150 text-white/90"}
+                                    `}
+                      >
+                        <div className="relative w-10 h-10 rounded-[6px] bg-white/5 overflow-hidden shrink-0 shadow-sm group-hover:shadow-lg transition-shadow duration-200">
+                          {track.coverUrl && (
+                            <SmartImage
+                              src={track.coverUrl}
+                              alt={track.title}
+                              containerClassName="w-full h-full"
+                              imgClassName={`w-full h-full object-cover transition-opacity ${nowPlaying ? "opacity-40 blur-[1px]" : ""}`}
+                            />
+                          )}
+                          {/* Play Button on Hover or Selected */}
+                          {!nowPlaying && (
+                            <div className={`absolute inset-0 flex items-center justify-center bg-black/50 ${search.selectedIndex === idx ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-hover:transition-opacity group-hover:duration-150"}`}>
+                              <PlayIcon className="w-4 h-4 fill-white drop-shadow-md" />
+                            </div>
+                          )}
+                          {/* Now Playing Indicator */}
+                          {nowPlaying && isPlaying && (
+                            <div className="absolute inset-0 flex items-center justify-center gap-[2px]">
+                              <div
+                                className="w-[2px] bg-current rounded-full animate-[eq-bounce_1s_ease-in-out_infinite]"
+                                style={{ height: "8px", color: accentColor }}
+                              ></div>
+                              <div
+                                className="w-[2px] bg-current rounded-full animate-[eq-bounce_1s_ease-in-out_infinite_0.2s]"
+                                style={{ height: "14px", color: accentColor }}
+                              ></div>
+                              <div
+                                className="w-[2px] bg-current rounded-full animate-[eq-bounce_1s_ease-in-out_infinite_0.4s]"
+                                style={{ height: "10px", color: accentColor }}
+                              ></div>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
+                          <div
+                            className={`text-[15px] font-medium truncate ${search.selectedIndex === idx ? "text-white" : nowPlaying ? "" : "text-white/90"}`}
+                            style={nowPlaying ? { color: accentColor } : {}}
+                          >
+                            {track.title}
+                          </div>
+                          <div
+                            className={`text-[13px] truncate ${search.selectedIndex === idx ? "text-white/70" : "text-white/40"}`}
+                          >
+                            {track.artist}{" "}
+                            <span className="opacity-50 mx-1">·</span>{" "}
+                            {track.album}
+                          </div>
+                        </div>
+                        <div className="px-2">
+                          <span
+                            className={`
+                                            text-[10px] font-bold px-1.5 py-0.5 rounded border
+                                            ${search.selectedIndex === idx
+                                ? "border-white/30 text-white/80 bg-white/20"
+                                : "border-white/10 text-white/30 bg-white/5"
+                              }
+                                        `}
+                          >
+                            云
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {/* Loading Indicator */}
+                  {search.neteaseProvider.hasMore && (
+                    <div className="py-6 flex items-center justify-center">
+                      {search.neteaseProvider.isLoading ? (
+                        <div className="w-5 h-5 border-2 border-white/20 border-t-white/60 rounded-full animate-spin"></div>
+                      ) : (
+                        <div className="text-white/20 text-xs">
+                          滚动加载更多
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+          {search.activeTab === "qqmusic" && (
+            <div className="relative flex flex-col gap-1 pb-4">
+              {/* Prompt to press Enter */}
+              {search.showQqPrompt && (
+                <div className="flex flex-col items-center justify-center h-64 text-white/30">
+                  <SearchIcon className="w-12 h-12 mb-4 opacity-20" />
+                  <span className="text-base font-medium">
+                    输入关键词自动搜索
+                  </span>
+                </div>
+              )}
+              {/* No results after search */}
+              {search.showQqEmpty && (
+                <div className="flex flex-col items-center justify-center h-64 text-white/20">
+                  <SearchIcon className="w-12 h-12 mb-4 opacity-20" />
+                  <span className="text-base font-medium">
+                    未找到匹配项
+                  </span>
+                </div>
+              )}
+              {/* Loading State */}
+              {search.showQqLoading && (
+                <div className="flex flex-col items-center justify-center h-64 text-white/20">
+                  <div className="w-8 h-8 border-2 border-white/20 border-t-white/60 rounded-full animate-spin mb-4"></div>
+                  <span className="text-base font-medium">搜索中…</span>
+                </div>
+              )}
+              {/* Initial empty state */}
+              {search.showQqInitial && (
+                <div className="flex flex-col items-center justify-center h-64 text-white/20">
+                  <SearchIcon className="w-12 h-12 mb-4 opacity-20" />
+                  <span className="text-base font-medium">
+                    搜索QQ音乐
+                  </span>
+                </div>
+              )}
+              {/* Results list */}
+              {search.qqmusicProvider.results.length > 0 && (
+                <React.Fragment>
+                  {search.qqmusicProvider.results.map((track, idx) => {
+                    return (
+                      <div
+                        key={`${track.id}-${idx}`}
+                        ref={(el) => {
+                          search.itemRefs.current[idx] = el;
+                        }}
+                        className={`
+                                        relative z-10 group flex items-center gap-3 p-3 rounded-[10px] cursor-pointer
+                                        hover:bg-white/5 hover:transition-colors hover:duration-150 text-white/90
+                                    `}
+                      >
+                        <div className="relative w-10 h-10 rounded-[6px] bg-white/5 overflow-hidden shrink-0 shadow-sm group-hover:shadow-lg transition-shadow duration-200">
+                          {track.coverUrl && (
+                            <SmartImage
+                              src={track.coverUrl}
+                              alt={track.title}
+                              containerClassName="w-full h-full"
+                              imgClassName="w-full h-full object-cover transition-opacity"
+                            />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
+                          <div className="text-[15px] font-medium truncate">
+                            {track.title}
+                          </div>
+                          <div className="text-[13px] truncate text-white/40">
+                            {track.artist} <span className="opacity-50 mx-1">·</span> {track.album}
+                          </div>
+                        </div>
+                        <div className="px-2">
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-white/10 text-white/30 bg-white/5">
+                            QQ
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </React.Fragment>
+              )}
+            </div>
+          )}
+                      {search.activeTab === "qqmusic" && (
+                        <div className="relative flex flex-col gap-1 pb-4">
+                          {/* Prompt to press Enter */}
+                          {search.showQqPrompt && (
+                            <div className="flex flex-col items-center justify-center h-64 text-white/30">
+                              <SearchIcon className="w-12 h-12 mb-4 opacity-20" />
+                              <span className="text-base font-medium">
+                                输入关键词自动搜索
+                              </span>
+                            </div>
+                          )}
+                          {/* No results after search */}
+                          {search.showQqEmpty && (
+                            <div className="flex flex-col items-center justify-center h-64 text-white/20">
+                              <SearchIcon className="w-12 h-12 mb-4 opacity-20" />
+                              <span className="text-base font-medium">
+                                未找到匹配项
+                              </span>
+                            </div>
+                          )}
+                          {/* Loading State */}
+                          {search.showQqLoading && (
+                            <div className="flex flex-col items-center justify-center h-64 text-white/20">
+                              <div className="w-8 h-8 border-2 border-white/20 border-t-white/60 rounded-full animate-spin mb-4"></div>
+                              <span className="text-base font-medium">搜索中…</span>
+                            </div>
+                          )}
+                          {/* Initial empty state */}
+                          {search.showQqInitial && (
+                            <div className="flex flex-col items-center justify-center h-64 text-white/20">
+                              <SearchIcon className="w-12 h-12 mb-4 opacity-20" />
+                              <span className="text-base font-medium">
+                                搜索QQ音乐
+                              </span>
+                            </div>
+                          )}
+                          {/* Results list */}
+                          {search.qqmusicProvider.results.length > 0 && (
+                            <React.Fragment>
+                              {search.qqmusicProvider.results.map((track, idx) => {
+                                return (
+                                  <div
+                                    key={`${track.id}-${idx}`}
+                                    ref={(el) => {
+                                      search.itemRefs.current[idx] = el;
+                                    }}
+                                    className={`
+                                                    relative z-10 group flex items-center gap-3 p-3 rounded-[10px] cursor-pointer
+                                                    hover:bg-white/5 hover:transition-colors hover:duration-150 text-white/90
+                                                `}
+                                  >
+                                    <div className="relative w-10 h-10 rounded-[6px] bg-white/5 overflow-hidden shrink-0 shadow-sm group-hover:shadow-lg transition-shadow duration-200">
+                                      {track.coverUrl && (
+                                        <SmartImage
+                                          src={track.coverUrl}
+                                          alt={track.title}
+                                          containerClassName="w-full h-full"
+                                          imgClassName="w-full h-full object-cover transition-opacity"
+                                        />
+                                      )}
+                                    </div>
+                                    <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
+                                      <div className="text-[15px] font-medium truncate">
+                                        {track.title}
+                                      </div>
+                                      <div className="text-[13px] truncate text-white/40">
+                                        {track.artist} <span className="opacity-50 mx-1">·</span> {track.album}
+                                      </div>
+                                    </div>
+                                    <div className="px-2">
+                                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-white/10 text-white/30 bg-white/5">
+                                        QQ
+                                      </span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </React.Fragment>
+                          )}
+                        </div>
+                      )}
+            <div className="relative flex flex-col gap-1 pb-4">
+              {/* Prompt to press Enter */}
+              {search.showNeteasePrompt && (
+                <div className="flex flex-col items-center justify-center h-64 text-white/30">
+                  <SearchIcon className="w-12 h-12 mb-4 opacity-20" />
+                  <span className="text-base font-medium">
+                    按 <kbd className="px-2 py-1 bg-white/10 rounded text-white/60">Enter</kbd> 搜索
                   </span>
                 </div>
               )}
@@ -468,7 +784,7 @@ const SearchModal: React.FC<SearchModalProps> = ({
                 <div className="flex flex-col items-center justify-center h-64 text-white/20">
                   <SearchIcon className="w-12 h-12 mb-4 opacity-20" />
                   <span className="text-base font-medium">
-                    No matches found
+                    未找到匹配项
                   </span>
                 </div>
               )}
@@ -477,7 +793,7 @@ const SearchModal: React.FC<SearchModalProps> = ({
               {search.showNeteaseLoading && (
                 <div className="flex flex-col items-center justify-center h-64 text-white/20">
                   <div className="w-8 h-8 border-2 border-white/20 border-t-white/60 rounded-full animate-spin mb-4"></div>
-                  <span className="text-base font-medium">Searching...</span>
+                  <span className="text-base font-medium">搜索中…</span>
                 </div>
               )}
 
@@ -486,7 +802,7 @@ const SearchModal: React.FC<SearchModalProps> = ({
                 <div className="flex flex-col items-center justify-center h-64 text-white/20">
                   <SearchIcon className="w-12 h-12 mb-4 opacity-20" />
                   <span className="text-base font-medium">
-                    Search Cloud Music
+                    搜索云音乐
                   </span>
                 </div>
               )}
@@ -516,7 +832,7 @@ const SearchModal: React.FC<SearchModalProps> = ({
                         }}
                         onClick={() => handleSelection(idx)}
                         onContextMenu={(e) =>
-                          search.openContextMenu(e, track, "netease")
+                          (console.log('右键云音乐项', track), search.openContextMenu(e, track, "netease"))
                         }
                         className={`
                                         relative z-10 group flex items-center gap-3 p-3 rounded-[10px] cursor-pointer
@@ -583,7 +899,7 @@ const SearchModal: React.FC<SearchModalProps> = ({
                               }
                                         `}
                           >
-                            Cloud
+                            云
                           </span>
                         </div>
                       </div>
@@ -597,7 +913,7 @@ const SearchModal: React.FC<SearchModalProps> = ({
                         <div className="w-5 h-5 border-2 border-white/20 border-t-white/60 rounded-full animate-spin"></div>
                       ) : (
                         <div className="text-white/20 text-xs">
-                          Scroll for more
+                          滚动加载更多
                         </div>
                       )}
                     </div>
@@ -605,8 +921,8 @@ const SearchModal: React.FC<SearchModalProps> = ({
                 </>
               )}
             </div>
+
           )}
-        </div>
 
         {/* Context Menu Portal */}
         {search.contextMenu &&
@@ -616,9 +932,9 @@ const SearchModal: React.FC<SearchModalProps> = ({
               style={{ top: search.contextMenu.y, left: search.contextMenu.x }}
               onContextMenu={(e) => e.preventDefault()}
             >
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
+              <div style={{color:'red',fontWeight:'bold',padding:'8px',margin:'4px',borderRadius:'8px',cursor:'pointer'}} onClick={() => alert('测试菜单渲染被点击')}>测试菜单渲染</div>
+              <div
+                onClick={() => {
                   if (search.contextMenu!.type === "queue") {
                     const qItem = search.contextMenu!.track as Song;
                     const idx = queue.findIndex((s) => s.id === qItem.id);
@@ -629,36 +945,37 @@ const SearchModal: React.FC<SearchModalProps> = ({
                     );
                   }
                   search.closeContextMenu();
-                  onClose();
+                  // 不自动关闭 modal，便于调试
                 }}
-                className="flex items-center gap-3 px-3 py-2 text-left text-[13px] text-white/90 hover:bg-blue-500 hover:text-white rounded-lg transition-colors"
+                style={{padding:'8px',background:'#333',color:'#fff',margin:'4px',borderRadius:'8px',cursor:'pointer'}}
               >
-                <PlayIcon className="w-4 h-4" />
-                Play Now
-              </button>
-
+                立即播放
+              </div>
               {search.contextMenu.type === "netease" && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    addNeteaseToQueue(
-                      search.contextMenu!.track as NeteaseTrackInfo,
-                    );
+                <div
+                  onClick={() => {
+                    const track = search.contextMenu!.track as NeteaseTrackInfo;
+                    const exists = queue.some(s => s.id === track.id);
+                    if (!exists) {
+                      addNeteaseToQueue(track);
+                    } else {
+                      // 可选：弹出提示
+                      alert('该歌曲已在队列中');
+                    }
                     search.closeContextMenu();
+                    // 不自动关闭 modal，便于调试
                   }}
-                  className="flex items-center gap-3 px-3 py-2 text-left text-[13px] text-white/90 hover:bg-blue-500 hover:text-white rounded-lg transition-colors"
+                  style={{padding:'8px',background:'#333',color:'#fff',margin:'4px',borderRadius:'8px',cursor:'pointer'}}
                 >
-                  <PlusIcon className="w-4 h-4" />
-                  Add to Queue
-                </button>
+                  加入队列
+                </div>
               )}
             </div>,
             document.body,
           )}
       </div>
-    </div>,
-    document.body,
-  );
+    </div>
+  , document.body);
 };
 
 export default SearchModal;
