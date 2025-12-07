@@ -27,6 +27,9 @@ export interface Song {
   isNetease?: boolean;
   neteaseId?: string;
   album?: string;
+  // QQ Music specific fields
+  isQQMusic?: boolean;
+  qqMusicMid?: string;
 }
 
 export enum PlayState {

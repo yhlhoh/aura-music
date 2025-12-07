@@ -7,6 +7,7 @@ import {
   getNeteaseAudioUrl,
   NeteaseTrackInfo,
 } from "../services/lyricsService";
+import { parseQQSongByMid, QQTrackInfo } from "../services/qqmusic";
 import { useKeyboardScope } from "../hooks/useKeyboardScope";
 import { useSearchModal } from "../hooks/useSearchModal";
 
@@ -161,6 +162,8 @@ const SearchModal: React.FC<SearchModalProps> = ({
             handleSelection(search.selectedIndex);
           } else if (search.activeTab === "netease" && search.query.trim()) {
             search.performNeteaseSearch();
+          } else if (search.activeTab === "qqmusic" && search.query.trim()) {
+            search.performQQMusicSearch();
           }
           return true;
         }
@@ -190,10 +193,16 @@ const SearchModal: React.FC<SearchModalProps> = ({
         onPlayQueueIndex(item.i);
         onClose();
       }
-    } else {
+    } else if (search.activeTab === "netease") {
       const track = search.neteaseProvider.results[index];
       if (track) {
         playNeteaseTrack(track);
+        onClose();
+      }
+    } else if (search.activeTab === "qqmusic") {
+      const track = search.qqmusicProvider.results[index];
+      if (track) {
+        playQQMusicTrack(track);
         onClose();
       }
     }
@@ -229,6 +238,54 @@ const SearchModal: React.FC<SearchModalProps> = ({
       needsLyricsMatch: true,
     };
     onAddToQueue(song);
+  };
+
+  const playQQMusicTrack = async (track: QQTrackInfo) => {
+    try {
+      const parseResult = await parseQQSongByMid(track.songmid);
+      if (!parseResult.data?.url) {
+        console.error("Failed to get playable URL for QQ Music track");
+        return;
+      }
+      
+      const song: Song = {
+        id: track.id,
+        title: track.title,
+        artist: track.artist,
+        fileUrl: parseResult.data.url,
+        isQQMusic: true,
+        qqMusicMid: track.songmid,
+        album: track.album,
+        lyrics: [],
+      };
+      onImportAndPlay(song);
+    } catch (error) {
+      console.error("Error playing QQ Music track:", error);
+    }
+  };
+
+  const addQQMusicToQueue = async (track: QQTrackInfo) => {
+    try {
+      const parseResult = await parseQQSongByMid(track.songmid);
+      if (!parseResult.data?.url) {
+        console.error("Failed to get playable URL for QQ Music track");
+        return;
+      }
+      
+      const song: Song = {
+        id: track.id,
+        title: track.title,
+        artist: track.artist,
+        fileUrl: parseResult.data.url,
+        isQQMusic: true,
+        qqMusicMid: track.songmid,
+        album: track.album,
+        lyrics: [],
+      };
+      onAddToQueue(song);
+    } catch (error) {
+      console.error("Error adding QQ Music track to queue:", error);
+    }
   };
 
   // Reset refs
@@ -274,13 +331,13 @@ const SearchModal: React.FC<SearchModalProps> = ({
         {/* Header Area */}
         <div className="flex flex-col px-5 pt-5 pb-3 gap-4 border-b border-white/10 shrink-0 bg-white/5 z-10">
           {/* Animated Tabs */}
-          <div className="relative flex items-center justify-center p-1 rounded-lg self-center w-full max-w-xs mb-1 bg-black/20 backdrop-blur-md shadow-inner">
+          <div className="relative flex items-center justify-center p-1 rounded-lg self-center w-full max-w-md mb-1 bg-black/20 backdrop-blur-md shadow-inner">
             {/* Gliding Pill */}
             <div
               className="absolute top-1 bottom-1 rounded-[6px] bg-white/15 shadow-[0_1px_2px_rgba(0,0,0,0.1)] transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)]"
               style={{
-                left: search.activeTab === "queue" ? "4px" : "50%",
-                width: "calc(50% - 4px)",
+                left: search.activeTab === "queue" ? "4px" : search.activeTab === "netease" ? "calc(33.333% + 1.333px)" : "calc(66.666% - 1.333px)",
+                width: "calc(33.333% - 2.666px)",
               }}
             />
 
@@ -306,6 +363,17 @@ const SearchModal: React.FC<SearchModalProps> = ({
             >
               {search.neteaseProvider.label}
             </button>
+            <button
+              onClick={() => {
+                search.setActiveTab("qqmusic");
+              }}
+              className={`
+                        relative flex-1 py-1.5 text-[13px] font-medium transition-colors duration-200 z-10
+                        ${search.activeTab === "qqmusic" ? "text-white" : "text-white/50 hover:text-white/70"}
+                    `}
+            >
+              {search.qqmusicProvider.label}
+            </button>
           </div>
 
           {/* Search Bar */}
@@ -321,7 +389,9 @@ const SearchModal: React.FC<SearchModalProps> = ({
               placeholder={
                 search.activeTab === "netease"
                   ? "在线搜索…"
-                  : "筛选队列…"
+                  : search.activeTab === "qqmusic"
+                    ? "搜索QQ音乐…"
+                    : "筛选队列…"
               }
               className="
                         w-full pl-12 pr-4 py-3.5
@@ -602,6 +672,145 @@ const SearchModal: React.FC<SearchModalProps> = ({
               )}
             </div>
           )}
+
+          {/* QQ Music Results */}
+          {search.activeTab === "qqmusic" && (
+            <div className="relative flex flex-col gap-1 pb-4">
+              {/* Prompt to press Enter */}
+              {search.showQQMusicPrompt && (
+                <div className="flex flex-col items-center justify-center h-64 text-white/30">
+                  <SearchIcon className="w-12 h-12 mb-4 opacity-20" />
+                  <span className="text-base font-medium">
+                    按 <kbd className="px-2 py-1 bg-white/10 rounded text-white/60">Enter</kbd> 搜索
+                  </span>
+                </div>
+              )}
+
+              {/* No results after search */}
+              {search.showQQMusicEmpty && (
+                <div className="flex flex-col items-center justify-center h-64 text-white/20">
+                  <SearchIcon className="w-12 h-12 mb-4 opacity-20" />
+                  <span className="text-base font-medium">
+                    未找到匹配项
+                  </span>
+                </div>
+              )}
+
+              {/* Loading State */}
+              {search.showQQMusicLoading && (
+                <div className="flex flex-col items-center justify-center h-64 text-white/20">
+                  <div className="w-8 h-8 border-2 border-white/20 border-t-white/60 rounded-full animate-spin mb-4"></div>
+                  <span className="text-base font-medium">搜索中…</span>
+                </div>
+              )}
+
+              {/* Initial empty state */}
+              {search.showQQMusicInitial && (
+                <div className="flex flex-col items-center justify-center h-64 text-white/20">
+                  <SearchIcon className="w-12 h-12 mb-4 opacity-20" />
+                  <span className="text-base font-medium">
+                    搜索QQ音乐
+                  </span>
+                </div>
+              )}
+
+              {/* Results list */}
+              {search.qqmusicProvider.results.length > 0 && (
+                <>
+                  {/* Floating Selection Background */}
+                  {search.selectedIndex >= 0 && search.itemRefs.current[search.selectedIndex] && (
+                    <div
+                      className="absolute left-0 right-0 bg-white/25 backdrop-blur-md rounded-[10px] pointer-events-none transition-all duration-200 ease-out"
+                      style={{
+                        top: `${search.itemRefs.current[search.selectedIndex]?.offsetTop || 0}px`,
+                        height: `${search.itemRefs.current[search.selectedIndex]?.offsetHeight || 56}px`,
+                        zIndex: 0,
+                      }}
+                    />
+                  )}
+
+                  {search.qqmusicProvider.results.map((track, idx) => {
+                    const nowPlaying = search.isNowPlaying(track);
+                    return (
+                      <div
+                        key={`${track.id}-${idx}`}
+                        ref={(el) => {
+                          search.itemRefs.current[idx] = el;
+                        }}
+                        className={`
+                                        relative z-10 group flex items-center gap-3 p-3 rounded-[10px]
+                                        ${search.selectedIndex === idx ? "text-white" : "hover:bg-white/5 hover:transition-colors hover:duration-150 text-white/90"}
+                                    `}
+                      >
+                        <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
+                          <div
+                            className={`text-[15px] font-medium truncate ${search.selectedIndex === idx ? "text-white" : nowPlaying ? "" : "text-white/90"}`}
+                            style={nowPlaying ? { color: accentColor } : {}}
+                          >
+                            {track.title}
+                          </div>
+                          <div
+                            className={`text-[13px] truncate ${search.selectedIndex === idx ? "text-white/70" : "text-white/40"}`}
+                          >
+                            {track.artist}{" "}
+                            <span className="opacity-50 mx-1">·</span>{" "}
+                            {track.album}
+                          </div>
+                        </div>
+                        <div className="flex gap-2 items-center">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              addQQMusicToQueue(track);
+                            }}
+                            className="px-3 py-1.5 text-xs font-medium rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 hover:border-white/20 transition-all duration-150"
+                          >
+                            添加到队列
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              playQQMusicTrack(track);
+                              onClose();
+                            }}
+                            className="px-3 py-1.5 text-xs font-medium rounded-lg bg-white/20 hover:bg-white/30 border border-white/20 hover:border-white/30 transition-all duration-150"
+                          >
+                            立即播放
+                          </button>
+                        </div>
+                        <div className="px-2">
+                          <span
+                            className={`
+                                            text-[10px] font-bold px-1.5 py-0.5 rounded border
+                                            ${search.selectedIndex === idx
+                                ? "border-white/30 text-white/80 bg-white/20"
+                                : "border-white/10 text-white/30 bg-white/5"
+                              }
+                                        `}
+                          >
+                            QQ
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Loading Indicator */}
+                  {search.qqmusicProvider.hasMore && (
+                    <div className="py-6 flex items-center justify-center">
+                      {search.qqmusicProvider.isLoading ? (
+                        <div className="w-5 h-5 border-2 border-white/20 border-t-white/60 rounded-full animate-spin"></div>
+                      ) : (
+                        <div className="text-white/20 text-xs">
+                          滚动加载更多
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Context Menu Portal */}
@@ -619,9 +828,13 @@ const SearchModal: React.FC<SearchModalProps> = ({
                     const qItem = search.contextMenu!.track as Song;
                     const idx = queue.findIndex((s) => s.id === qItem.id);
                     onPlayQueueIndex(idx);
-                  } else {
+                  } else if (search.contextMenu!.type === "netease") {
                     playNeteaseTrack(
                       search.contextMenu!.track as NeteaseTrackInfo,
+                    );
+                  } else if (search.contextMenu!.type === "qqmusic") {
+                    playQQMusicTrack(
+                      search.contextMenu!.track as QQTrackInfo,
                     );
                   }
                   search.closeContextMenu();
@@ -638,6 +851,25 @@ const SearchModal: React.FC<SearchModalProps> = ({
                     const exists = queue.some(s => s.id === track.id);
                     if (!exists) {
                       addNeteaseToQueue(track);
+                    } else {
+                      // 可选：弹出提示
+                      alert('该歌曲已在队列中');
+                    }
+                    search.closeContextMenu();
+                    // 不自动关闭 modal，便于调试
+                  }}
+                  style={{padding:'8px',background:'#333',color:'#fff',margin:'4px',borderRadius:'8px',cursor:'pointer'}}
+                >
+                  加入队列
+                </div>
+              )}
+              {search.contextMenu.type === "qqmusic" && (
+                <div
+                  onClick={() => {
+                    const track = search.contextMenu!.track as QQTrackInfo;
+                    const exists = queue.some(s => s.qqMusicMid === track.songmid);
+                    if (!exists) {
+                      addQQMusicToQueue(track);
                     } else {
                       // 可选：弹出提示
                       alert('该歌曲已在队列中');
