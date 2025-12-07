@@ -1,14 +1,19 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Song } from "../types";
 import { NeteaseTrackInfo } from "../services/lyricsService";
+import { QQTrackInfo } from "../services/qqmusic";
 import { useQueueSearchProvider } from "./useQueueSearchProvider";
 import {
   useNeteaseSearchProvider,
   NeteaseSearchProviderExtended,
 } from "./useNeteaseSearchProvider";
+import {
+  useQQMusicSearchProvider,
+  QQMusicSearchProviderExtended,
+} from "./useQQMusicSearchProvider";
 
-export type SearchSource = "queue" | "netease";
-export type SearchResultItem = Song | NeteaseTrackInfo;
+export type SearchSource = "queue" | "netease" | "qqmusic";
+export type SearchResultItem = Song | NeteaseTrackInfo | QQTrackInfo;
 
 interface ContextMenuState {
   visible: boolean;
@@ -45,6 +50,7 @@ export const useSearchModal = ({
   // Search Providers
   const queueProvider = useQueueSearchProvider({ queue });
   const neteaseProvider = useNeteaseSearchProvider();
+  const qqmusicProvider = useQQMusicSearchProvider();
 
   // Queue search results (real-time)
   const [queueResults, setQueueResults] = useState<{ s: Song; i: number }[]>(
@@ -89,12 +95,23 @@ export const useSearchModal = ({
     await neteaseProvider.performSearch(query);
   }, [query, neteaseProvider]);
 
+  const performQQMusicSearch = useCallback(async () => {
+    if (!query.trim()) return;
+    setSelectedIndex(-1);
+    await qqmusicProvider.performSearch(query);
+  }, [query, qqmusicProvider]);
+
   const loadMoreNetease = useCallback(async () => {
     if (neteaseProvider.isLoading || !neteaseProvider.hasMore) return;
     const nextOffset = neteaseOffset + LIMIT;
     await neteaseProvider.loadMore(query, nextOffset, LIMIT);
     setNeteaseOffset(nextOffset);
   }, [neteaseProvider, neteaseOffset, query]);
+
+  const loadMoreQQMusic = useCallback(async () => {
+    if (qqmusicProvider.isLoading || !qqmusicProvider.hasMore) return;
+    await qqmusicProvider.loadMore(query);
+  }, [qqmusicProvider, query]);
 
   const handleScroll = useCallback(
     (e: React.UIEvent<HTMLDivElement>) => {
@@ -103,9 +120,14 @@ export const useSearchModal = ({
         if (scrollHeight - scrollTop - clientHeight < 100) {
           loadMoreNetease();
         }
+      } else if (activeTab === "qqmusic") {
+        const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
+        if (scrollHeight - scrollTop - clientHeight < 100) {
+          loadMoreQQMusic();
+        }
       }
     },
-    [activeTab, loadMoreNetease],
+    [activeTab, loadMoreNetease, loadMoreQQMusic],
   );
 
   // --- Navigation ---
@@ -121,7 +143,9 @@ export const useSearchModal = ({
     const listLength =
       activeTab === "queue"
         ? queueResults.length
-        : neteaseProvider.results.length;
+        : activeTab === "netease"
+          ? neteaseProvider.results.length
+          : qqmusicProvider.results.length;
     if (listLength === 0) return;
 
     const next = Math.min(selectedIndex + 1, listLength - 1);
@@ -132,6 +156,7 @@ export const useSearchModal = ({
     selectedIndex,
     queueResults.length,
     neteaseProvider.results.length,
+    qqmusicProvider.results.length,
     scrollToItem,
   ]);
 
@@ -142,7 +167,12 @@ export const useSearchModal = ({
   }, [selectedIndex, scrollToItem]);
 
   const switchTab = useCallback(() => {
-    setActiveTab((prev) => (prev === "queue" ? "netease" : "queue"));
+    const tabs: SearchSource[] = ["queue", "netease", "qqmusic"];
+    setActiveTab((prev) => {
+      const currentIndex = tabs.indexOf(prev);
+      const nextIndex = (currentIndex + 1) % tabs.length;
+      return tabs[nextIndex];
+    });
     setSelectedIndex(-1);
   }, []);
 
@@ -179,6 +209,9 @@ export const useSearchModal = ({
       if ("isNetease" in item && item.isNetease && currentSong.isNetease) {
         return item.neteaseId === currentSong.neteaseId;
       }
+      if ("isQQMusic" in item && item.isQQMusic && currentSong.isQQMusic) {
+        return item.songmid === currentSong.qqMusicMid;
+      }
       return (
         item.title === currentSong.title && item.artist === currentSong.artist
       );
@@ -209,6 +242,27 @@ export const useSearchModal = ({
     !neteaseProvider.hasSearched &&
     query.trim().length === 0;
 
+  const showQQMusicPrompt =
+    activeTab === "qqmusic" &&
+    !qqmusicProvider.hasSearched &&
+    query.trim().length > 0;
+
+  const showQQMusicEmpty =
+    activeTab === "qqmusic" &&
+    qqmusicProvider.hasSearched &&
+    qqmusicProvider.results.length === 0 &&
+    !qqmusicProvider.isLoading;
+
+  const showQQMusicLoading =
+    activeTab === "qqmusic" &&
+    qqmusicProvider.isLoading &&
+    qqmusicProvider.results.length === 0;
+
+  const showQQMusicInitial =
+    activeTab === "qqmusic" &&
+    !qqmusicProvider.hasSearched &&
+    query.trim().length === 0;
+
   return {
     // State
     query,
@@ -221,6 +275,7 @@ export const useSearchModal = ({
     // Providers
     queueProvider,
     neteaseProvider,
+    qqmusicProvider,
 
     // Results
     queueResults,
@@ -230,7 +285,9 @@ export const useSearchModal = ({
 
     // Actions
     performNeteaseSearch,
+    performQQMusicSearch,
     loadMoreNetease,
+    loadMoreQQMusic,
     handleScroll,
 
     // Navigation
@@ -251,6 +308,10 @@ export const useSearchModal = ({
     showNeteaseEmpty,
     showNeteaseInitial,
     showNeteaseLoading,
+    showQQMusicPrompt,
+    showQQMusicEmpty,
+    showQQMusicInitial,
+    showQQMusicLoading,
 
     // Constants
     LIMIT,
