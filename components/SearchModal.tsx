@@ -336,8 +336,8 @@ const SearchModal: React.FC<SearchModalProps> = ({
             <div
               className="absolute top-1 bottom-1 rounded-[6px] bg-white/15 shadow-[0_1px_2px_rgba(0,0,0,0.1)] transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)]"
               style={{
-                left: search.activeTab === "queue" ? "4px" : search.activeTab === "netease" ? "calc(33.333% + 1.333px)" : "calc(66.666% - 1.333px)",
-                width: "calc(33.333% - 2.666px)",
+                left: search.activeTab === "queue" ? "4px" : search.activeTab === "netease" ? "calc(100% / 3 + 4px / 3)" : "calc(200% / 3 + 4px / 3)",
+                width: "calc(100% / 3 - 8px / 3)",
               }}
             />
 
