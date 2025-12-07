@@ -1,6 +1,8 @@
 // QQ Music API Service
 // Provides search and playback URL parsing for QQ Music
 
+import { fetchViaProxy } from "./utils";
+
 const QQ_SEARCH_API = "https://yutangxiaowu.cn:3015/api/qmusic/search";
 const QQ_PARSE_API = "https://yutangxiaowu.cn:3015/api/parseqmusic";
 
@@ -70,14 +72,10 @@ export const searchQQMusic = async (
     pageSize: pageSize.toString(),
   });
 
-  try {
-    const response = await fetch(`${QQ_SEARCH_API}?${params.toString()}`);
-    
-    if (!response.ok) {
-      throw new Error(`QQ Music search failed: ${response.status} ${response.statusText}`);
-    }
+  const url = `${QQ_SEARCH_API}?${params.toString()}`;
 
-    const data: QQSearchResponse = await response.json();
+  try {
+    const data: QQSearchResponse = await fetchViaProxy(url);
 
     if (data.code !== 0) {
       throw new Error(data.message || "QQ Music search failed");
@@ -111,14 +109,10 @@ export const parseQQSongByMid = async (
     songmid: songmid.trim(),
   });
 
-  try {
-    const response = await fetch(`${QQ_PARSE_API}?${params.toString()}`);
-    
-    if (!response.ok) {
-      throw new Error(`QQ Music parse failed: ${response.status} ${response.statusText}`);
-    }
+  const url = `${QQ_PARSE_API}?${params.toString()}`;
 
-    const data: QQParseResponse = await response.json();
+  try {
+    const data: QQParseResponse = await fetchViaProxy(url);
 
     if (data.code !== 0) {
       throw new Error(data.message || "Failed to parse QQ Music song");
@@ -152,14 +146,10 @@ export const parseQQSongByUrl = async (url: string): Promise<QQParseResponse> =>
     url: url.trim(),
   });
 
-  try {
-    const response = await fetch(`${QQ_PARSE_API}?${params.toString()}`);
-    
-    if (!response.ok) {
-      throw new Error(`QQ Music parse failed: ${response.status} ${response.statusText}`);
-    }
+  const apiUrl = `${QQ_PARSE_API}?${params.toString()}`;
 
-    const data: QQParseResponse = await response.json();
+  try {
+    const data: QQParseResponse = await fetchViaProxy(apiUrl);
 
     if (data.code !== 0) {
       throw new Error(data.message || "Failed to parse QQ Music URL");
