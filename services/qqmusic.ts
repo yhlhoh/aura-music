@@ -132,8 +132,11 @@ export function toHttps(url?: string): string | undefined {
 // URL 字段名称列表（用于 HTTPS 转换）
 const URL_FIELD_NAMES = ['music', 'url', 'pic', 'picture'] as const;
 
-// 辅助函数：递归地将对象中所有 URL 字段转换为 HTTPS
-function normalizeUrlsToHttps<T extends Record<string, any>>(data: T): T {
+/**
+ * 辅助函数：将对象中所有 URL 字段转换为 HTTPS
+ * 专为 317ak API 响应结构设计，仅处理顶层和 data 嵌套字段
+ */
+function normalizeUrlsToHttps<T extends Record<string, unknown>>(data: T): T {
   if (!data || typeof data !== 'object') return data;
   
   const normalized = { ...data };
@@ -141,13 +144,13 @@ function normalizeUrlsToHttps<T extends Record<string, any>>(data: T): T {
   // 处理常见的 URL 字段
   for (const field of URL_FIELD_NAMES) {
     if (field in normalized && typeof normalized[field] === 'string') {
-      normalized[field] = toHttps(normalized[field]);
+      normalized[field] = toHttps(normalized[field] as string);
     }
   }
   
-  // 递归处理嵌套对象
+  // 递归处理 data 嵌套字段（317ak API 特定结构）
   if ('data' in normalized && typeof normalized.data === 'object' && normalized.data !== null) {
-    normalized.data = normalizeUrlsToHttps(normalized.data as Record<string, any>);
+    normalized.data = normalizeUrlsToHttps(normalized.data as Record<string, unknown>);
   }
   
   return normalized;
