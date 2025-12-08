@@ -7,8 +7,8 @@ import {
   getNeteaseAudioUrl,
   NeteaseTrackInfo,
 } from "../services/lyricsService";
-import { parseQQSongBy317ak, buildQQMusicUrl, QQTrackInfo, toHttps } from "../services/qqmusic";
-import { parseLyrics, fetchLyricsSingle, fetchLyricsBatch, LyricLine } from "../services/lyrics";
+import { parseQQSongBy317ak, buildQQMusicUrl, QQTrackInfo, toHttps, fetchQQMusicLyricsFromInjahow } from "../services/qqmusic";
+import { parseLyrics, LyricLine } from "../services/lyrics";
 import { useKeyboardScope } from "../hooks/useKeyboardScope";
 import { useSearchModal } from "../hooks/useSearchModal";
 
@@ -268,25 +268,17 @@ const SearchModal: React.FC<SearchModalProps> = ({
     onAddToQueue(song);
   };
 
-  // Helper function to fetch lyrics from lrc.cx API
+  // Helper function to fetch lyrics from injahow API
   const fetchQQMusicLyrics = async (
-    title: string,
-    album: string,
-    artist: string
+    songmid: string
   ): Promise<LyricLine[]> => {
     try {
-      // Try single endpoint first
-      const lrcText = await fetchLyricsSingle(title, album, artist);
+      const lrcText = await fetchQQMusicLyricsFromInjahow(songmid);
       if (lrcText) {
         return parseLyrics(lrcText);
       }
-      // Fallback to advance endpoint
-      const lrcResults = await fetchLyricsBatch(title, album, artist);
-      if (lrcResults && lrcResults.length > 0) {
-        return parseLyrics(lrcResults[0].lyrics);
-      }
     } catch (error) {
-      console.warn("Failed to fetch lyrics from lrc.cx:", error);
+      console.warn("Failed to fetch lyrics from injahow:", error);
     }
     return [];
   };
@@ -310,8 +302,8 @@ const SearchModal: React.FC<SearchModalProps> = ({
         parseResult.picture
       );
 
-      // Fetch lyrics from lrc.cx API
-      const lyrics = await fetchQQMusicLyrics(track.title, track.album, track.artist);
+      // Fetch lyrics from injahow API using songmid
+      const lyrics = await fetchQQMusicLyrics(track.songmid);
       
       const song: Song = {
         id: track.id,
@@ -350,8 +342,8 @@ const SearchModal: React.FC<SearchModalProps> = ({
         parseResult.picture
       );
 
-      // Fetch lyrics from lrc.cx API
-      const lyrics = await fetchQQMusicLyrics(track.title, track.album, track.artist);
+      // Fetch lyrics from injahow API using songmid
+      const lyrics = await fetchQQMusicLyrics(track.songmid);
       
       const song: Song = {
         id: track.id,

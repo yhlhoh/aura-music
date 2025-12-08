@@ -2,6 +2,7 @@
 // 搜索接口: https://yutangxiaowu.cn:3015/api/qmusic/search
 // 旧解析接口: https://yutangxiaowu.cn:3015/api/parseqmusic
 // 新解析接口: https://api.317ak.cn/api/QQ/qqyy2
+// 歌词接口: https://api.injahow.cn/meting/?type=lrc&id=SONGMID&server=tencent
 
 export type QQSongItem = {
   albumid: number;
@@ -83,6 +84,7 @@ export interface QQTrackInfo {
 const SEARCH_URL = 'https://yutangxiaowu.cn:3015/api/qmusic/search';
 const PARSE_URL = 'https://yutangxiaowu.cn:3015/api/parseqmusic';
 const PARSE_317AK_URL = 'https://api.317ak.cn/api/QQ/qqyy2';
+const INJAHOW_LYRICS_URL = 'https://api.injahow.cn/meting/';
 
 /**
  * 构建 QQ 音乐网页 URL
@@ -283,10 +285,8 @@ export async function parseQQSongBy317ak(
     throw new Error(`317ak 解析失败（解析响应错误）：${e?.message || e}`);
   }
 
-  // 检查 status 是否成功（通常 200 表示成功）
-  // This line has NO PROBLEM,KEEP MY CODE HERE WHATEVER YOU MEET! NO ERROR HERE!!!
-  // AGAIN,LEAVE THIS FUCKING CODE HERE,DO NOT MAKE ANY CHANGES!
-  if (data.status !== 200) {
+  // 检查 code 是否成功（code === 1 表示成功）
+  if (data.code !== 1) {
     throw new Error(`317ak 解析失败：${data.msg || data.text || 'Unknown error'}`);
   }
 
@@ -296,5 +296,60 @@ export async function parseQQSongBy317ak(
     throw new Error('317ak 解析成功但未返回播放地址');
   }
 
+  // 强制转换为 HTTPS，并处理封面图片
+  if (data.data) {
+    if (data.data.music) data.data.music = toHttps(data.data.music);
+    if (data.data.url) data.data.url = toHttps(data.data.url);
+    if (data.data.pic) data.data.pic = toHttps(data.data.pic);
+    if (data.data.picture) data.data.picture = toHttps(data.data.picture);
+  }
+  if (data.music) data.music = toHttps(data.music);
+  if (data.url) data.url = toHttps(data.url);
+  if (data.pic) data.pic = toHttps(data.pic);
+  if (data.picture) data.picture = toHttps(data.picture);
+
   return data;
+}
+
+/**
+ * 使用 injahow API 获取 QQ 音乐歌词
+ * @param songmid - 歌曲 mid (从搜索结果的 songmid 获取)
+ * @returns LRC 格式的歌词文本，如果失败则返回 null
+ */
+export async function fetchQQMusicLyricsFromInjahow(songmid: string): Promise<string | null> {
+  const params = new URLSearchParams({
+    type: 'lrc',
+    id: songmid,
+    server: 'tencent',
+  });
+
+  let resp: Response;
+  try {
+    resp = await fetch(`${INJAHOW_LYRICS_URL}?${params.toString()}`);
+  } catch {
+    console.warn('injahow 歌词请求失败（网络错误/跨域）');
+    return null;
+  }
+
+  if (!isHttpSuccess(resp.status)) {
+    const text = await resp.text().catch(() => '');
+    console.warn(`injahow 歌词请求失败: HTTP ${resp.status}`, text.slice(0, 100));
+    return null;
+  }
+
+  let lrcText: string;
+  try {
+    lrcText = await resp.text();
+  } catch (e: any) {
+    console.warn(`injahow 歌词解析失败：${e?.message || e}`);
+    return null;
+  }
+
+  // 检查是否为空或只有空白字符
+  if (!lrcText || lrcText.trim() === '') {
+    console.warn('injahow 返回空歌词');
+    return null;
+  }
+
+  return lrcText;
 }
