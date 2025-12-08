@@ -1,7 +1,8 @@
 import { Song } from "../types";
 import { NeteaseTrackInfo } from "../services/lyricsService";
+import { QQTrackInfo } from "../services/qqmusic";
 
-export type SearchResultItem = Song | NeteaseTrackInfo;
+export type SearchResultItem = Song | NeteaseTrackInfo | QQTrackInfo;
 
 export interface SearchProvider {
   // Unique identifier for this provider
