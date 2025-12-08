@@ -7,7 +7,7 @@ import {
   getNeteaseAudioUrl,
   NeteaseTrackInfo,
 } from "../services/lyricsService";
-import { parseQQSongByUrl, buildQQMusicUrl, QQTrackInfo } from "../services/qqmusic";
+import { parseQQSongBy317ak, buildQQMusicUrl, QQTrackInfo } from "../services/qqmusic";
 import { useKeyboardScope } from "../hooks/useKeyboardScope";
 import { useSearchModal } from "../hooks/useSearchModal";
 
@@ -38,12 +38,17 @@ function formatDuration(seconds?: number): string {
 /**
  * Extract playable URL from QQ Music parse result
  * Handles different API response structures for compatibility
- * @param parseResult - Parse result from QQ Music API
+ * @param parseResult - Parse result from QQ Music API (317ak format)
  * @returns Playable URL string or undefined
  */
 function extractPlayUrl(parseResult: any): string | undefined {
-  return parseResult.url || parseResult.data?.url;
+  // 317ak API format: data.music or music
+  return parseResult.data?.music || parseResult.music || parseResult.url || parseResult.data?.url;
 }
+
+// 固定密钥用于 317ak API
+const CKEY = 'RK7TO6VHAB0WSW7VHXKH';
+const DEFAULT_BR = 3;
 
 const SEQUOIA_SCROLLBAR_STYLES = `
   .sequoia-scrollbar {
@@ -264,9 +269,8 @@ const SearchModal: React.FC<SearchModalProps> = ({
 
   const playQQMusicTrack = async (track: QQTrackInfo) => {
     try {
-      // Prefer URL-based parsing over mid-based parsing to avoid 500 errors
-      const url = track.songurl || buildQQMusicUrl(track.songmid);
-      const parseResult = await parseQQSongByUrl(url);
+      // 使用 317ak API 解析歌曲 (使用 songmid 和固定 ckey)
+      const parseResult = await parseQQSongBy317ak(track.songmid, CKEY, DEFAULT_BR);
       
       const playUrl = extractPlayUrl(parseResult);
       if (!playUrl) {
@@ -293,9 +297,8 @@ const SearchModal: React.FC<SearchModalProps> = ({
 
   const addQQMusicToQueue = async (track: QQTrackInfo) => {
     try {
-      // Prefer URL-based parsing over mid-based parsing to avoid 500 errors
-      const url = track.songurl || buildQQMusicUrl(track.songmid);
-      const parseResult = await parseQQSongByUrl(url);
+      // 使用 317ak API 解析歌曲 (使用 songmid 和固定 ckey)
+      const parseResult = await parseQQSongBy317ak(track.songmid, CKEY, DEFAULT_BR);
       
       const playUrl = extractPlayUrl(parseResult);
       if (!playUrl) {

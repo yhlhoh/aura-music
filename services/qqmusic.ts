@@ -1,6 +1,7 @@
 // QQ音乐 API 封装
 // 搜索接口: https://yutangxiaowu.cn:3015/api/qmusic/search
-// 解析接口: https://yutangxiaowu.cn:3015/api/parseqmusic
+// 旧解析接口: https://yutangxiaowu.cn:3015/api/parseqmusic
+// 新解析接口: https://api.317ak.cn/api/QQ/qqyy2
 
 export type QQSongItem = {
   albumid: number;
@@ -45,6 +46,22 @@ export type QQParseResponse = {
   lyric?: string;
 };
 
+// 317ak API 响应类型
+export type QQ317ParseResponse = {
+  code: number;
+  msg: string;
+  data?: {
+    music?: string; // 播放直链
+    title?: string;
+    artist?: string;
+    album?: string;
+  };
+  music?: string; // 某些实现可能直接返回在顶层
+  title?: string;
+  artist?: string;
+  album?: string;
+};
+
 export interface QQTrackInfo {
   id: string;
   title: string;
@@ -58,6 +75,7 @@ export interface QQTrackInfo {
 
 const SEARCH_URL = 'https://yutangxiaowu.cn:3015/api/qmusic/search';
 const PARSE_URL = 'https://yutangxiaowu.cn:3015/api/parseqmusic';
+const PARSE_317AK_URL = 'https://api.317ak.cn/api/QQ/qqyy2';
 
 /**
  * 构建 QQ 音乐网页 URL
@@ -212,5 +230,56 @@ export async function parseQQSongByUrl(url: string): Promise<QQParseResponse> {
   if (!data?.url) {
     throw new Error('解析成功但未返回播放地址');
   }
+  return data;
+}
+
+/**
+ * 使用 317ak API 解析 QQ 音乐歌曲获取播放地址
+ * @param songmid - 歌曲 mid (从搜索结果的 songmid 获取)
+ * @param ckey - 固定密钥 (RK7TO6VHAB0WSW7VHXKH)
+ * @param br - 音质等级 (默认 3)
+ * @returns 包含播放直链和元数据的响应
+ */
+export async function parseQQSongBy317ak(
+  songmid: string,
+  ckey: string,
+  br: number = 3
+): Promise<QQ317ParseResponse> {
+  const params = new URLSearchParams({
+    mid: songmid,
+    ckey,
+    br: String(br),
+  });
+
+  let resp: Response;
+  try {
+    resp = await fetch(`${PARSE_317AK_URL}?${params.toString()}`);
+  } catch {
+    throw new Error('317ak 解析请求失败（网络错误/跨域）');
+  }
+
+  if (!isHttpSuccess(resp.status)) {
+    const text = await resp.text().catch(() => '');
+    throw buildHttpError('317ak 解析失败', resp.status, text);
+  }
+
+  let data: QQ317ParseResponse;
+  try {
+    data = await safeParseJSON(resp);
+  } catch (e: any) {
+    throw new Error(`317ak 解析失败（解析响应错误）：${e?.message || e}`);
+  }
+
+  // 检查 code 是否成功（通常 200 表示成功）
+  if (data.code !== 200) {
+    throw new Error(`317ak 解析失败：${data.msg || 'Unknown error'}`);
+  }
+
+  // 获取播放地址 (可能在 data.music 或 music 字段)
+  const musicUrl = data.data?.music || data.music;
+  if (!musicUrl) {
+    throw new Error('317ak 解析成功但未返回播放地址');
+  }
+
   return data;
 }
