@@ -271,7 +271,7 @@ export async function parseQQSongBy317ak(
   }
 
   // 检查 code 是否成功（通常 200 表示成功）
-  if (data.code !== 200) {
+  if (data.status !== 200) {
     throw new Error(`317ak 解析失败：${data.msg || 'Unknown error'}`);
   }
 
