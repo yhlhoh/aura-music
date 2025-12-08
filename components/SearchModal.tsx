@@ -7,7 +7,7 @@ import {
   getNeteaseAudioUrl,
   NeteaseTrackInfo,
 } from "../services/lyricsService";
-import { parseQQSongByUrl, buildQQMusicUrl, QQTrackInfo } from "../services/qqmusic";
+import { parseQQSongByUrl, buildC6LinkFromMid, QQTrackInfo } from "../services/qqmusic";
 import { useKeyboardScope } from "../hooks/useKeyboardScope";
 import { useSearchModal } from "../hooks/useSearchModal";
 
@@ -264,8 +264,8 @@ const SearchModal: React.FC<SearchModalProps> = ({
 
   const playQQMusicTrack = async (track: QQTrackInfo) => {
     try {
-      // Prefer URL-based parsing over mid-based parsing to avoid 500 errors
-      const url = track.songurl || buildQQMusicUrl(track.songmid);
+      // Use C6 link for parsing to avoid 500 errors
+      const url = track.songurl || buildC6LinkFromMid(track.songmid);
       const parseResult = await parseQQSongByUrl(url);
       
       const playUrl = extractPlayUrl(parseResult);
@@ -293,8 +293,8 @@ const SearchModal: React.FC<SearchModalProps> = ({
 
   const addQQMusicToQueue = async (track: QQTrackInfo) => {
     try {
-      // Prefer URL-based parsing over mid-based parsing to avoid 500 errors
-      const url = track.songurl || buildQQMusicUrl(track.songmid);
+      // Use C6 link for parsing to avoid 500 errors
+      const url = track.songurl || buildC6LinkFromMid(track.songmid);
       const parseResult = await parseQQSongByUrl(url);
       
       const playUrl = extractPlayUrl(parseResult);
