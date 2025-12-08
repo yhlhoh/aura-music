@@ -56,12 +56,12 @@ export async function fetchLyricsSingle(
       return null;
     }
 
-    // Response is text/html containing LRC content
+    // Response contains LRC content as text
     const text = await response.text();
     
-    // Check if response is empty or contains error indicators
-    if (!text || text.trim() === '' || text.includes('404') || text.includes('Not Found')) {
-      console.warn('lrc.cx: No lyrics found');
+    // Check if response is empty
+    if (!text || text.trim() === '') {
+      console.warn('lrc.cx: No lyrics found (empty response)');
       return null;
     }
 
