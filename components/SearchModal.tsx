@@ -23,6 +23,18 @@ interface SearchModalProps {
   accentColor: string;
 }
 
+/**
+ * Format duration from seconds to mm:ss format
+ * @param seconds - Duration in seconds
+ * @returns Formatted string in mm:ss format
+ */
+function formatDuration(seconds?: number): string {
+  if (!seconds) return '--:--';
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
 const SEQUOIA_SCROLLBAR_STYLES = `
   .sequoia-scrollbar {
     scrollbar-width: thin;
@@ -97,14 +109,6 @@ const SearchModal: React.FC<SearchModalProps> = ({
     isPlaying,
     isOpen,
   });
-
-  // Helper function to format duration (seconds to mm:ss)
-  const formatDuration = (seconds?: number): string => {
-    if (!seconds) return '--:--';
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
 
   // --- Animation Handling ---
   useEffect(() => {
@@ -254,7 +258,9 @@ const SearchModal: React.FC<SearchModalProps> = ({
       const url = track.songurl || buildQQMusicUrl(track.songmid);
       const parseResult = await parseQQSongByUrl(url);
       
-      if (!parseResult?.url) {
+      // Access url - check both top level and nested data.url for API compatibility
+      const playUrl = parseResult.url || (parseResult as any).data?.url;
+      if (!playUrl) {
         console.error("Failed to get playable URL for QQ Music track");
         return;
       }
@@ -263,7 +269,7 @@ const SearchModal: React.FC<SearchModalProps> = ({
         id: track.id,
         title: track.title,
         artist: track.artist,
-        fileUrl: parseResult.url,
+        fileUrl: playUrl,
         isQQMusic: true,
         qqMusicMid: track.songmid,
         album: track.album,
@@ -282,7 +288,9 @@ const SearchModal: React.FC<SearchModalProps> = ({
       const url = track.songurl || buildQQMusicUrl(track.songmid);
       const parseResult = await parseQQSongByUrl(url);
       
-      if (!parseResult?.url) {
+      // Access url - check both top level and nested data.url for API compatibility
+      const playUrl = parseResult.url || (parseResult as any).data?.url;
+      if (!playUrl) {
         console.error("Failed to get playable URL for QQ Music track");
         return;
       }
@@ -291,7 +299,7 @@ const SearchModal: React.FC<SearchModalProps> = ({
         id: track.id,
         title: track.title,
         artist: track.artist,
-        fileUrl: parseResult.url,
+        fileUrl: playUrl,
         isQQMusic: true,
         qqMusicMid: track.songmid,
         album: track.album,

@@ -59,7 +59,12 @@ export interface QQTrackInfo {
 const SEARCH_URL = 'https://yutangxiaowu.cn:3015/api/qmusic/search';
 const PARSE_URL = 'https://yutangxiaowu.cn:3015/api/parseqmusic';
 
-// 构建 QQ 音乐网页 URL
+/**
+ * 构建 QQ 音乐网页 URL
+ * Build QQ Music web URL from songmid for URL-based parsing
+ * @param songmid - The song's unique identifier (songmid)
+ * @returns QQ Music song detail page URL
+ */
 export function buildQQMusicUrl(songmid: string): string {
   return `https://y.qq.com/n/ryqq/songDetail/${songmid}`;
 }
