@@ -45,8 +45,24 @@ export type QQParseResponse = {
   lyric?: string;
 };
 
+export interface QQTrackInfo {
+  id: string;
+  title: string;
+  artist: string;
+  album: string;
+  songmid: string;
+  songurl?: string;
+  duration?: number;
+  payplay?: number;
+}
+
 const SEARCH_URL = 'https://yutangxiaowu.cn:3015/api/qmusic/search';
 const PARSE_URL = 'https://yutangxiaowu.cn:3015/api/parseqmusic';
+
+// 构建 QQ 音乐网页 URL
+export function buildQQMusicUrl(songmid: string): string {
+  return `https://y.qq.com/n/ryqq/songDetail/${songmid}`;
+}
 
 // 接受 200–399 为成功（API 在 3xx 时也可能返回 JSON）
 function isHttpSuccess(status: number): boolean {
@@ -77,7 +93,7 @@ export async function searchQQMusic(
   key: string,
   pageNo = 1,
   pageSize = 10
-): Promise<QQSongItem[]> {
+): Promise<QQTrackInfo[]> {
   const params = new URLSearchParams({
     key,
     t: '0', // 0=单曲
@@ -107,10 +123,29 @@ export async function searchQQMusic(
   if (!data?.data?.list) {
     // 有些实现会把数据直接放在 data.list，没有 data 包装时返回空数组防止 UI 报错
     const list = (data as any)?.list;
-    if (Array.isArray(list)) return list as QQSongItem[];
+    if (Array.isArray(list)) {
+      return transformToTrackInfo(list as QQSongItem[]);
+    }
     return [];
   }
-  return data.data.list;
+  return transformToTrackInfo(data.data.list);
+}
+
+// 将 QQSongItem 转换为 QQTrackInfo
+function transformToTrackInfo(items: QQSongItem[]): QQTrackInfo[] {
+  return items.map(item => {
+    const artistNames = item.singer.map(s => s.name).join(' / ');
+    return {
+      id: `qq-${item.songmid}`,
+      title: item.songname,
+      artist: artistNames,
+      album: item.albumname,
+      songmid: item.songmid,
+      songurl: undefined, // API doesn't provide direct song URL in search results
+      duration: item.interval,
+      payplay: item.pay?.payplay,
+    };
+  });
 }
 
 export async function parseQQSongByMid(songmid: string): Promise<QQParseResponse> {

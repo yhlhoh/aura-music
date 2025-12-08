@@ -7,7 +7,7 @@ import {
   getNeteaseAudioUrl,
   NeteaseTrackInfo,
 } from "../services/lyricsService";
-import { parseQQSongByMid, QQTrackInfo } from "../services/qqmusic";
+import { parseQQSongByUrl, buildQQMusicUrl, QQTrackInfo } from "../services/qqmusic";
 import { useKeyboardScope } from "../hooks/useKeyboardScope";
 import { useSearchModal } from "../hooks/useSearchModal";
 
@@ -97,6 +97,14 @@ const SearchModal: React.FC<SearchModalProps> = ({
     isPlaying,
     isOpen,
   });
+
+  // Helper function to format duration (seconds to mm:ss)
+  const formatDuration = (seconds?: number): string => {
+    if (!seconds) return '--:--';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   // --- Animation Handling ---
   useEffect(() => {
@@ -242,8 +250,11 @@ const SearchModal: React.FC<SearchModalProps> = ({
 
   const playQQMusicTrack = async (track: QQTrackInfo) => {
     try {
-      const parseResult = await parseQQSongByMid(track.songmid);
-      if (!parseResult.data?.url) {
+      // Prefer URL-based parsing over mid-based parsing to avoid 500 errors
+      const url = track.songurl || buildQQMusicUrl(track.songmid);
+      const parseResult = await parseQQSongByUrl(url);
+      
+      if (!parseResult?.url) {
         console.error("Failed to get playable URL for QQ Music track");
         return;
       }
@@ -252,11 +263,12 @@ const SearchModal: React.FC<SearchModalProps> = ({
         id: track.id,
         title: track.title,
         artist: track.artist,
-        fileUrl: parseResult.data.url,
+        fileUrl: parseResult.url,
         isQQMusic: true,
         qqMusicMid: track.songmid,
         album: track.album,
         lyrics: [],
+        needsLyricsMatch: true,
       };
       onImportAndPlay(song);
     } catch (error) {
@@ -266,8 +278,11 @@ const SearchModal: React.FC<SearchModalProps> = ({
 
   const addQQMusicToQueue = async (track: QQTrackInfo) => {
     try {
-      const parseResult = await parseQQSongByMid(track.songmid);
-      if (!parseResult.data?.url) {
+      // Prefer URL-based parsing over mid-based parsing to avoid 500 errors
+      const url = track.songurl || buildQQMusicUrl(track.songmid);
+      const parseResult = await parseQQSongByUrl(url);
+      
+      if (!parseResult?.url) {
         console.error("Failed to get playable URL for QQ Music track");
         return;
       }
@@ -276,11 +291,12 @@ const SearchModal: React.FC<SearchModalProps> = ({
         id: track.id,
         title: track.title,
         artist: track.artist,
-        fileUrl: parseResult.data.url,
+        fileUrl: parseResult.url,
         isQQMusic: true,
         qqMusicMid: track.songmid,
         album: track.album,
         lyrics: [],
+        needsLyricsMatch: true,
       };
       onAddToQueue(song);
     } catch (error) {
@@ -742,12 +758,19 @@ const SearchModal: React.FC<SearchModalProps> = ({
                                         ${search.selectedIndex === idx ? "text-white" : "hover:bg-white/5 hover:transition-colors hover:duration-150 text-white/90"}
                                     `}
                       >
-                        <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
-                          <div
-                            className={`text-[15px] font-medium truncate ${search.selectedIndex === idx ? "text-white" : nowPlaying ? "" : "text-white/90"}`}
-                            style={nowPlaying ? { color: accentColor } : {}}
-                          >
-                            {track.title}
+                        <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
+                          <div className="flex items-center gap-2">
+                            <div
+                              className={`text-[15px] font-medium truncate ${search.selectedIndex === idx ? "text-white" : nowPlaying ? "" : "text-white/90"}`}
+                              style={nowPlaying ? { color: accentColor } : {}}
+                            >
+                              {track.title}
+                            </div>
+                            {track.payplay === 1 && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 shrink-0">
+                                付费
+                              </span>
+                            )}
                           </div>
                           <div
                             className={`text-[13px] truncate ${search.selectedIndex === idx ? "text-white/70" : "text-white/40"}`}
@@ -755,9 +778,11 @@ const SearchModal: React.FC<SearchModalProps> = ({
                             {track.artist}{" "}
                             <span className="opacity-50 mx-1">·</span>{" "}
                             {track.album}
+                            <span className="opacity-50 mx-1">·</span>{" "}
+                            {formatDuration(track.duration)}
                           </div>
                         </div>
-                        <div className="flex gap-2 items-center">
+                        <div className="flex gap-2 items-center shrink-0">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -778,7 +803,7 @@ const SearchModal: React.FC<SearchModalProps> = ({
                             立即播放
                           </button>
                         </div>
-                        <div className="px-2">
+                        <div className="px-2 shrink-0">
                           <span
                             className={`
                                             text-[10px] font-bold px-1.5 py-0.5 rounded border

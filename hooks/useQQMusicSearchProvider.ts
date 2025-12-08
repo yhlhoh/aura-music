@@ -43,7 +43,7 @@ export const useQQMusicSearchProvider = (): QQMusicSearchProviderExtended => {
   }, []);
 
   const loadMore = useCallback(
-    async (query: string): Promise<SearchResultItem[]> => {
+    async (query: string, _offset?: number, _limit?: number): Promise<SearchResultItem[]> => {
       if (isLoading || !hasMore) return [];
 
       setIsLoading(true);

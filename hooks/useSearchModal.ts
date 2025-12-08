@@ -110,7 +110,7 @@ export const useSearchModal = ({
 
   const loadMoreQQMusic = useCallback(async () => {
     if (qqmusicProvider.isLoading || !qqmusicProvider.hasMore) return;
-    await qqmusicProvider.loadMore(query);
+    await qqmusicProvider.loadMore(query, 0, 0);
   }, [qqmusicProvider, query]);
 
   const handleScroll = useCallback(
@@ -209,7 +209,7 @@ export const useSearchModal = ({
       if ("isNetease" in item && item.isNetease && currentSong.isNetease) {
         return item.neteaseId === currentSong.neteaseId;
       }
-      if ("isQQMusic" in item && item.isQQMusic && currentSong.isQQMusic) {
+      if ("songmid" in item && currentSong.isQQMusic) {
         return item.songmid === currentSong.qqMusicMid;
       }
       return (
