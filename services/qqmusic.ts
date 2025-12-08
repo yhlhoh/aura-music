@@ -324,6 +324,7 @@ export async function parseQQSongBy317ak(
 
   // 获取播放地址 (可能在 data.music, data.url, music 或 url 字段)
   const musicUrl = data.data?.music || data.data?.url || data.music || data.url;
+  musicUrl.replace("http:","https:");
   if (!musicUrl) {
     throw new Error('317ak 解析成功但未返回播放地址');
   }
