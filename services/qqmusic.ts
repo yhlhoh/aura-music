@@ -85,6 +85,8 @@ const SEARCH_URL = 'https://yutangxiaowu.cn:3015/api/qmusic/search';
 const PARSE_URL = 'https://yutangxiaowu.cn:3015/api/parseqmusic';
 const PARSE_317AK_URL = 'https://api.317ak.cn/api/QQ/qqyy2';
 const INJAHOW_LYRICS_URL = 'https://api.injahow.cn/meting/';
+const INJAHOW_LYRICS_TYPE = 'lrc';
+const INJAHOW_SERVER = 'tencent';
 
 /**
  * 构建 QQ 音乐网页 URL
@@ -125,6 +127,28 @@ function buildHttpError(context: string, status: number, payloadPreview?: string
 export function toHttps(url?: string): string | undefined {
   if (!url) return url;
   return url.replace(/^http:\/\//i, 'https://');
+}
+
+// 辅助函数：递归地将对象中所有 URL 字段转换为 HTTPS
+function normalizeUrlsToHttps<T>(data: T): T {
+  if (!data || typeof data !== 'object') return data;
+  
+  const normalized = { ...data } as any;
+  
+  // 处理常见的 URL 字段
+  const urlFields = ['music', 'url', 'pic', 'picture'];
+  for (const field of urlFields) {
+    if (field in normalized && typeof normalized[field] === 'string') {
+      normalized[field] = toHttps(normalized[field]);
+    }
+  }
+  
+  // 递归处理嵌套对象
+  if ('data' in normalized && typeof normalized.data === 'object' && normalized.data !== null) {
+    normalized.data = normalizeUrlsToHttps(normalized.data);
+  }
+  
+  return normalized;
 }
 
 export async function searchQQMusic(
@@ -296,19 +320,8 @@ export async function parseQQSongBy317ak(
     throw new Error('317ak 解析成功但未返回播放地址');
   }
 
-  // 强制转换为 HTTPS，并处理封面图片
-  if (data.data) {
-    if (data.data.music) data.data.music = toHttps(data.data.music);
-    if (data.data.url) data.data.url = toHttps(data.data.url);
-    if (data.data.pic) data.data.pic = toHttps(data.data.pic);
-    if (data.data.picture) data.data.picture = toHttps(data.data.picture);
-  }
-  if (data.music) data.music = toHttps(data.music);
-  if (data.url) data.url = toHttps(data.url);
-  if (data.pic) data.pic = toHttps(data.pic);
-  if (data.picture) data.picture = toHttps(data.picture);
-
-  return data;
+  // 强制转换所有 URL 为 HTTPS
+  return normalizeUrlsToHttps(data);
 }
 
 /**
@@ -318,9 +331,9 @@ export async function parseQQSongBy317ak(
  */
 export async function fetchQQMusicLyricsFromInjahow(songmid: string): Promise<string | null> {
   const params = new URLSearchParams({
-    type: 'lrc',
+    type: INJAHOW_LYRICS_TYPE,
     id: songmid,
-    server: 'tencent',
+    server: INJAHOW_SERVER,
   });
 
   let resp: Response;
