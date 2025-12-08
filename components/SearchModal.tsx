@@ -7,7 +7,8 @@ import {
   getNeteaseAudioUrl,
   NeteaseTrackInfo,
 } from "../services/lyricsService";
-import { parseQQSongBy317ak, buildQQMusicUrl, QQTrackInfo } from "../services/qqmusic";
+import { parseQQSongBy317ak, buildQQMusicUrl, QQTrackInfo, toHttps } from "../services/qqmusic";
+import { parseLyrics, fetchLyricsSingle, fetchLyricsBatch, LyricLine } from "../services/lyrics";
 import { useKeyboardScope } from "../hooks/useKeyboardScope";
 import { useSearchModal } from "../hooks/useSearchModal";
 
@@ -267,6 +268,29 @@ const SearchModal: React.FC<SearchModalProps> = ({
     onAddToQueue(song);
   };
 
+  // Helper function to fetch lyrics from lrc.cx API
+  const fetchQQMusicLyrics = async (
+    title: string,
+    album: string,
+    artist: string
+  ): Promise<LyricLine[]> => {
+    try {
+      // Try single endpoint first
+      const lrcText = await fetchLyricsSingle(title, album, artist);
+      if (lrcText) {
+        return parseLyrics(lrcText);
+      }
+      // Fallback to advance endpoint
+      const lrcResults = await fetchLyricsBatch(title, album, artist);
+      if (lrcResults && lrcResults.length > 0) {
+        return parseLyrics(lrcResults[0].lyrics);
+      }
+    } catch (error) {
+      console.warn("Failed to fetch lyrics from lrc.cx:", error);
+    }
+    return [];
+  };
+
   const playQQMusicTrack = async (track: QQTrackInfo) => {
     try {
       // 使用 317ak API 解析歌曲 (使用 songmid 和固定 ckey)
@@ -277,17 +301,29 @@ const SearchModal: React.FC<SearchModalProps> = ({
         console.error("Failed to get playable URL for QQ Music track");
         return;
       }
+
+      // Extract and normalize cover URL
+      const coverUrl = toHttps(
+        parseResult.data?.pic || 
+        parseResult.data?.picture || 
+        parseResult.pic || 
+        parseResult.picture
+      );
+
+      // Fetch lyrics from lrc.cx API
+      const lyrics = await fetchQQMusicLyrics(track.title, track.album, track.artist);
       
       const song: Song = {
         id: track.id,
         title: track.title,
         artist: track.artist,
-        fileUrl: playUrl,
+        fileUrl: toHttps(playUrl) ?? playUrl,
+        coverUrl,
         isQQMusic: true,
         qqMusicMid: track.songmid,
         album: track.album,
-        lyrics: [],
-        needsLyricsMatch: true,
+        lyrics,
+        needsLyricsMatch: lyrics.length === 0,
       };
       onImportAndPlay(song);
     } catch (error) {
@@ -305,17 +341,29 @@ const SearchModal: React.FC<SearchModalProps> = ({
         console.error("Failed to get playable URL for QQ Music track");
         return;
       }
+
+      // Extract and normalize cover URL
+      const coverUrl = toHttps(
+        parseResult.data?.pic || 
+        parseResult.data?.picture || 
+        parseResult.pic || 
+        parseResult.picture
+      );
+
+      // Fetch lyrics from lrc.cx API
+      const lyrics = await fetchQQMusicLyrics(track.title, track.album, track.artist);
       
       const song: Song = {
         id: track.id,
         title: track.title,
         artist: track.artist,
-        fileUrl: playUrl,
+        fileUrl: toHttps(playUrl) ?? playUrl,
+        coverUrl,
         isQQMusic: true,
         qqMusicMid: track.songmid,
         album: track.album,
-        lyrics: [],
-        needsLyricsMatch: true,
+        lyrics,
+        needsLyricsMatch: lyrics.length === 0,
       };
       onAddToQueue(song);
     } catch (error) {
