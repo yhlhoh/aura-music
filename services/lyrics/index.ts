@@ -5,6 +5,7 @@
  * - Standard LRC with optional word-by-word timing
  * - Netease YRC format with word timing
  * - Translation merging
+ * - lrc.cx API integration
  *
  * Architecture:
  * - Tokenizer-based parsing (not regex)
@@ -25,6 +26,10 @@ export type { LyricLine, LyricWord } from "./types";
 export { parseLrc } from "./lrc";
 export { parseNeteaseLyrics, isNeteaseFormat } from "./netease";
 export { mergeTranslations, buildTranslationMap } from "./translation";
+
+// Re-export lrc.cx API
+export { fetchLyricsSingle, fetchLyricsBatch } from "./lrccx";
+export type { LrcCxBatchResult } from "./lrccx";
 
 // Re-export utilities for backward compatibility
 export { INTERLUDE_TEXT } from "./parser";
