@@ -279,8 +279,8 @@ export async function parseQQSongBy317ak(
     throw new Error(`317ak 解析失败：${data.msg || 'Unknown error'}`);
   }
 
-  // 获取播放地址 (可能在 data.music 或 music 字段)
-  const musicUrl = data.data?.url || data.url;
+  // 获取播放地址 (可能在 data.music, data.url, music 或 url 字段)
+  const musicUrl = data.data?.music || data.data?.url || data.music || data.url;
   if (!musicUrl) {
     throw new Error('317ak 解析成功但未返回播放地址');
   }
