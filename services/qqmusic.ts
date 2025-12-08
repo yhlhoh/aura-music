@@ -236,7 +236,7 @@ export async function parseQQSongByUrl(url: string): Promise<QQParseResponse> {
 /**
  * 使用 317ak API 解析 QQ 音乐歌曲获取播放地址
  * @param songmid - 歌曲 mid (从搜索结果的 songmid 获取)
- * @param ckey - 固定秘钥 (RK7TO6VHAB0WSW7VHXKH)
+ * @param ckey - 固定密钥 (RK7TO6VHAB0WSW7VHXKH)
  * @param br - 音质等级 (默认 3)
  * @returns 包含播放直链和元数据的响应
  */
@@ -247,7 +247,7 @@ export async function parseQQSongBy317ak(
 ): Promise<QQ317ParseResponse> {
   const params = new URLSearchParams({
     mid: songmid,
-    ckey: ckey,
+    ckey,
     br: String(br),
   });
 

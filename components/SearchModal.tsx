@@ -46,7 +46,7 @@ function extractPlayUrl(parseResult: any): string | undefined {
   return parseResult.data?.music || parseResult.music || parseResult.url || parseResult.data?.url;
 }
 
-// 固定秘钥用于 317ak API
+// 固定密钥用于 317ak API
 const CKEY = 'RK7TO6VHAB0WSW7VHXKH';
 const DEFAULT_BR = 3;
 
