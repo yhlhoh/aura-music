@@ -1,191 +1,176 @@
-// QQ Music API Service
-// Provides search and playback URL parsing for QQ Music
+// QQ音乐 API 封装
+// 搜索接口: https://yutangxiaowu.cn:3015/api/qmusic/search
+// 解析接口: https://yutangxiaowu.cn:3015/api/parseqmusic
 
-import { fetchViaProxy } from "./utils";
-
-const QQ_SEARCH_API = "https://yutangxiaowu.cn:3015/api/qmusic/search";
-const QQ_PARSE_API = "https://yutangxiaowu.cn:3015/api/parseqmusic";
-
-// Response types from QQ Music API
-export interface QQSongItem {
+export type QQSongItem = {
+  albumid: number;
+  albummid: string;
+  albumname: string;
+  songid: number;
   songmid: string;
   songname: string;
-  singer?: Array<{ name: string }>;
-  albumname?: string;
-  albummid?: string;
-  interval?: number; // duration in seconds
-}
+  singer: Array<{ id: number; mid: string; name: string }>;
+  interval: number;
+  size128?: number;
+  size320?: number;
+  sizeflac?: number;
+  pay?: { payplay?: number; paydownload?: number };
+};
 
-export interface QQSearchResponse {
-  code?: number;
-  message?: string;
-  data?: {
-    list?: QQSongItem[];
-    total?: number;
+export type QQSearchResponse = {
+  result: number;
+  data: {
+    list: QQSongItem[];
+    pageNo: number;
+    pageSize: number;
+    total: number;
+    key: string;
+    t: string;
+    type: string;
   };
-}
+};
 
-export interface QQParseResponse {
-  code?: number;
-  message?: string;
-  data?: {
-    url?: string;
-    songmid?: string;
-    songname?: string;
+export type QQParseResponse = {
+  success: boolean;
+  detail: {
+    songName: string;
     singer?: string;
-    albumname?: string;
+    singerName?: string;
+    album?: string;
+    duration?: string;
     interval?: number;
-    lyric?: string;
   };
-}
-
-export interface QQTrackInfo {
-  id: string;
-  title: string;
-  artist: string;
-  album: string;
   songmid: string;
-  duration?: number;
-  isQQMusic: true;
+  url: string; // 播放地址
+  lyric?: string;
+};
+
+const SEARCH_URL = 'https://yutangxiaowu.cn:3015/api/qmusic/search';
+const PARSE_URL = 'https://yutangxiaowu.cn:3015/api/parseqmusic';
+
+// 接受 200–399 为成功（API 在 3xx 时也可能返回 JSON）
+function isHttpSuccess(status: number): boolean {
+  return status >= 200 && status < 400;
 }
 
-/**
- * Search QQ Music for songs
- * @param key - Search keyword
- * @param pageNo - Page number (default: 1)
- * @param pageSize - Results per page (default: 10)
- * @returns Array of QQTrackInfo
- */
-export const searchQQMusic = async (
+// 尝试解析 JSON；如果失败，回退 text 后再尝试 JSON.parse
+async function safeParseJSON(resp: Response): Promise<any> {
+  try {
+    return await resp.json();
+  } catch {
+    const text = await resp.text().catch(() => '');
+    if (!text) throw new Error('响应为空或不可读取');
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new Error(`响应非 JSON：${text.slice(0, 500)}`);
+    }
+  }
+}
+
+function buildHttpError(context: string, status: number, payloadPreview?: string): Error {
+  const preview = payloadPreview ? ` - ${payloadPreview.slice(0, 500)}` : '';
+  return new Error(`${context}: HTTP ${status}${preview}`);
+}
+
+export async function searchQQMusic(
   key: string,
-  pageNo: number = 1,
-  pageSize: number = 10,
-): Promise<QQTrackInfo[]> => {
-  if (!key.trim()) {
-    throw new Error("Search keyword cannot be empty");
-  }
-
+  pageNo = 1,
+  pageSize = 10
+): Promise<QQSongItem[]> {
   const params = new URLSearchParams({
-    key: key.trim(),
-    t: "0", // 0 for songs
-    pageNo: pageNo.toString(),
-    pageSize: pageSize.toString(),
+    key,
+    t: '0', // 0=单曲
+    pageNo: String(pageNo),
+    pageSize: String(pageSize),
   });
 
-  const url = `${QQ_SEARCH_API}?${params.toString()}`;
-
+  let resp: Response;
   try {
-    const data: QQSearchResponse = await fetchViaProxy(url);
-
-    if (data.code !== 0) {
-      throw new Error(data.message || "QQ Music search failed");
-    }
-
-    const songs = data.data?.list || [];
-    
-    return songs.map(mapQQSongToTrack);
-  } catch (error) {
-    console.error("QQ Music search error:", error);
-    if (error instanceof Error) {
-      throw error;
-    }
-    throw new Error("Failed to search QQ Music");
-  }
-};
-
-/**
- * Parse a QQ Music song to get playable URL and metadata
- * @param songmid - QQ Music song mid
- * @returns Parse response with URL and metadata
- */
-export const parseQQSongByMid = async (
-  songmid: string,
-): Promise<QQParseResponse> => {
-  if (!songmid.trim()) {
-    throw new Error("Song mid cannot be empty");
+    resp = await fetch(`${SEARCH_URL}?${params.toString()}`);
+  } catch {
+    throw new Error('搜索请求失败（网络错误/跨域）');
   }
 
-  const params = new URLSearchParams({
-    songmid: songmid.trim(),
-  });
+  if (!isHttpSuccess(resp.status)) {
+    const text = await resp.text().catch(() => '');
+    throw buildHttpError('搜索失败', resp.status, text);
+  }
 
-  const url = `${QQ_PARSE_API}?${params.toString()}`;
-
+  let data: QQSearchResponse;
   try {
-    const data: QQParseResponse = await fetchViaProxy(url);
-
-    if (data.code !== 0) {
-      throw new Error(data.message || "Failed to parse QQ Music song");
-    }
-
-    if (!data.data?.url) {
-      throw new Error("No playable URL returned");
-    }
-
-    return data;
-  } catch (error) {
-    console.error("QQ Music parse error:", error);
-    if (error instanceof Error) {
-      throw error;
-    }
-    throw new Error("Failed to parse QQ Music song");
-  }
-};
-
-/**
- * Parse a QQ Music song URL to get playable URL and metadata
- * @param url - QQ Music song URL
- * @returns Parse response with URL and metadata
- */
-export const parseQQSongByUrl = async (url: string): Promise<QQParseResponse> => {
-  if (!url.trim()) {
-    throw new Error("URL cannot be empty");
+    data = await safeParseJSON(resp);
+  } catch (e: any) {
+    throw new Error(`搜索失败（解析响应错误）：${e?.message || e}`);
   }
 
-  const params = new URLSearchParams({
-    url: url.trim(),
-  });
+  if (!data?.data?.list) {
+    // 有些实现会把数据直接放在 data.list，没有 data 包装时返回空数组防止 UI 报错
+    const list = (data as any)?.list;
+    if (Array.isArray(list)) return list as QQSongItem[];
+    return [];
+  }
+  return data.data.list;
+}
 
-  const apiUrl = `${QQ_PARSE_API}?${params.toString()}`;
+export async function parseQQSongByMid(songmid: string): Promise<QQParseResponse> {
+  const params = new URLSearchParams({ songmid });
 
+  let resp: Response;
   try {
-    const data: QQParseResponse = await fetchViaProxy(apiUrl);
-
-    if (data.code !== 0) {
-      throw new Error(data.message || "Failed to parse QQ Music URL");
-    }
-
-    if (!data.data?.url) {
-      throw new Error("No playable URL returned");
-    }
-
-    return data;
-  } catch (error) {
-    console.error("QQ Music parse error:", error);
-    if (error instanceof Error) {
-      throw error;
-    }
-    throw new Error("Failed to parse QQ Music URL");
+    resp = await fetch(`${PARSE_URL}?${params.toString()}`);
+  } catch {
+    throw new Error('解析请求失败（网络错误/跨域）');
   }
-};
 
-/**
- * Helper function to format artists from QQ Music response
- */
-const formatQQArtists = (singers?: Array<{ name: string }>): string => {
-  if (!singers || singers.length === 0) return "Unknown Artist";
-  return singers.map((s) => s.name).join("/");
-};
+  if (!isHttpSuccess(resp.status)) {
+    const text = await resp.text().catch(() => '');
+    throw buildHttpError('解析失败', resp.status, text);
+  }
 
-/**
- * Map QQ Music song item to track info
- */
-const mapQQSongToTrack = (song: QQSongItem): QQTrackInfo => ({
-  id: song.songmid,
-  title: song.songname || "Unknown",
-  artist: formatQQArtists(song.singer),
-  album: song.albumname || "Unknown Album",
-  songmid: song.songmid,
-  duration: song.interval,
-  isQQMusic: true,
-});
+  let data: QQParseResponse;
+  try {
+    data = await safeParseJSON(resp);
+  } catch (e: any) {
+    throw new Error(`解析失败（解析响应错误）：${e?.message || e}`);
+  }
+
+  if (!data?.success) {
+    throw new Error('解析返回 success=false');
+  }
+  if (!data?.url) {
+    throw new Error('解析成功但未返回播放地址');
+  }
+  return data;
+}
+
+export async function parseQQSongByUrl(url: string): Promise<QQParseResponse> {
+  const params = new URLSearchParams({ url });
+
+  let resp: Response;
+  try {
+    resp = await fetch(`${PARSE_URL}?${params.toString()}`);
+  } catch {
+    throw new Error('解析请求失败（网络错误/跨域）');
+  }
+
+  if (!isHttpSuccess(resp.status)) {
+    const text = await resp.text().catch(() => '');
+    throw buildHttpError('解析失败', resp.status, text);
+  }
+
+  let data: QQParseResponse;
+  try {
+    data = await safeParseJSON(resp);
+  } catch (e: any) {
+    throw new Error(`解析失败（解析响应错误）：${e?.message || e}`);
+  }
+
+  if (!data?.success) {
+    throw new Error('解析返回 success=false');
+  }
+  if (!data?.url) {
+    throw new Error('解析成功但未返回播放地址');
+  }
+  return data;
+}
