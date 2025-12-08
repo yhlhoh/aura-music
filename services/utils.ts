@@ -22,6 +22,15 @@ export const shuffleArray = <T>(array: T[]): T[] => {
   return newArr;
 };
 
+/**
+ * Check if HTTP status code represents success (200-399 range)
+ * @param status - HTTP status code
+ * @returns true if status is in 200-399 range
+ */
+export const isHttpSuccess = (status: number): boolean => {
+  return status >= 200 && status < 400;
+};
+
 // Helper to request via CORS proxy (api.allorigins.win is reliable for GET requests)
 // Try direct request first, fallback to proxy if CORS fails
 export const fetchViaProxy = async (targetUrl: string): Promise<any> => {
@@ -30,7 +39,7 @@ export const fetchViaProxy = async (targetUrl: string): Promise<any> => {
   // 1. Try direct request first
   try {
     const response = await fetch(targetUrl);
-    if (!response.ok) {
+    if (!isHttpSuccess(response.status)) {
       throw new Error(
         `Direct fetch failed with status: ${response.status} ${targetUrl}`,
       );
@@ -47,7 +56,7 @@ export const fetchViaProxy = async (targetUrl: string): Promise<any> => {
     try {
       const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
       const response = await fetch(proxyUrl);
-      if (!response.ok) {
+      if (!isHttpSuccess(response.status)) {
         throw new Error(`Proxy fetch failed with status: ${response.status}`);
       }
       text = await response.text();
