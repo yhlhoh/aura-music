@@ -8,7 +8,7 @@ import {
   NeteaseTrackInfo,
 } from "../services/lyricsService";
 import { parseQQSongBy317ak, buildQQMusicUrl, QQTrackInfo, toHttps } from "../services/qqmusic";
-import { parseLyrics, fetchLyricsSingle, fetchLyricsBatch } from "../services/lyrics";
+import { parseLyrics, fetchLyricsSingle, fetchLyricsBatch, LyricLine } from "../services/lyrics";
 import { useKeyboardScope } from "../hooks/useKeyboardScope";
 import { useSearchModal } from "../hooks/useSearchModal";
 
@@ -268,6 +268,29 @@ const SearchModal: React.FC<SearchModalProps> = ({
     onAddToQueue(song);
   };
 
+  // Helper function to fetch lyrics from lrc.cx API
+  const fetchQQMusicLyrics = async (
+    title: string,
+    album: string,
+    artist: string
+  ): Promise<LyricLine[]> => {
+    try {
+      // Try single endpoint first
+      const lrcText = await fetchLyricsSingle(title, album, artist);
+      if (lrcText) {
+        return parseLyrics(lrcText);
+      }
+      // Fallback to advance endpoint
+      const lrcResults = await fetchLyricsBatch(title, album, artist);
+      if (lrcResults && lrcResults.length > 0) {
+        return parseLyrics(lrcResults[0].lyrics);
+      }
+    } catch (error) {
+      console.warn("Failed to fetch lyrics from lrc.cx:", error);
+    }
+    return [];
+  };
+
   const playQQMusicTrack = async (track: QQTrackInfo) => {
     try {
       // 使用 317ak API 解析歌曲 (使用 songmid 和固定 ckey)
@@ -288,28 +311,13 @@ const SearchModal: React.FC<SearchModalProps> = ({
       );
 
       // Fetch lyrics from lrc.cx API
-      let lyrics: any[] = [];
-      try {
-        // Try single endpoint first
-        const lrcText = await fetchLyricsSingle(track.title, track.album, track.artist);
-        if (lrcText) {
-          lyrics = parseLyrics(lrcText);
-        } else {
-          // Fallback to advance endpoint
-          const lrcResults = await fetchLyricsBatch(track.title, track.album, track.artist);
-          if (lrcResults && lrcResults.length > 0) {
-            lyrics = parseLyrics(lrcResults[0].lyrics);
-          }
-        }
-      } catch (error) {
-        console.warn("Failed to fetch lyrics from lrc.cx:", error);
-      }
+      const lyrics = await fetchQQMusicLyrics(track.title, track.album, track.artist);
       
       const song: Song = {
         id: track.id,
         title: track.title,
         artist: track.artist,
-        fileUrl: toHttps(playUrl) || playUrl,
+        fileUrl: toHttps(playUrl) ?? playUrl,
         coverUrl,
         isQQMusic: true,
         qqMusicMid: track.songmid,
@@ -343,28 +351,13 @@ const SearchModal: React.FC<SearchModalProps> = ({
       );
 
       // Fetch lyrics from lrc.cx API
-      let lyrics: any[] = [];
-      try {
-        // Try single endpoint first
-        const lrcText = await fetchLyricsSingle(track.title, track.album, track.artist);
-        if (lrcText) {
-          lyrics = parseLyrics(lrcText);
-        } else {
-          // Fallback to advance endpoint
-          const lrcResults = await fetchLyricsBatch(track.title, track.album, track.artist);
-          if (lrcResults && lrcResults.length > 0) {
-            lyrics = parseLyrics(lrcResults[0].lyrics);
-          }
-        }
-      } catch (error) {
-        console.warn("Failed to fetch lyrics from lrc.cx:", error);
-      }
+      const lyrics = await fetchQQMusicLyrics(track.title, track.album, track.artist);
       
       const song: Song = {
         id: track.id,
         title: track.title,
         artist: track.artist,
-        fileUrl: toHttps(playUrl) || playUrl,
+        fileUrl: toHttps(playUrl) ?? playUrl,
         coverUrl,
         isQQMusic: true,
         qqMusicMid: track.songmid,
