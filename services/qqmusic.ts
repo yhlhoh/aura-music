@@ -52,14 +52,18 @@ export type QQ317ParseResponse = {
   msg: string;
   data?: {
     music?: string; // 播放直链
+    url?: string; // 播放直链（备用字段）
     title?: string;
     artist?: string;
     album?: string;
+    pic?: string; // 封面图片 URL
   };
   music?: string; // 某些实现可能直接返回在顶层
+  url?: string; // 播放直链（备用字段）
   title?: string;
   artist?: string;
   album?: string;
+  pic?: string; // 封面图片 URL（顶层备用字段）
 };
 
 export interface QQTrackInfo {
@@ -270,13 +274,13 @@ export async function parseQQSongBy317ak(
     throw new Error(`317ak 解析失败（解析响应错误）：${e?.message || e}`);
   }
 
-  // 检查 code 是否成功（通常 200 表示成功）
+  // 检查 status 是否成功（通常 200 表示成功）
   if (data.status !== 200) {
     throw new Error(`317ak 解析失败：${data.msg || 'Unknown error'}`);
   }
 
-  // 获取播放地址 (可能在 data.music 或 music 字段)
-  const musicUrl = data.data?.url || data.url;
+  // 获取播放地址 (可能在 data.music, data.url, music 或 url 字段)
+  const musicUrl = data.data?.music || data.data?.url || data.music || data.url;
   if (!musicUrl) {
     throw new Error('317ak 解析成功但未返回播放地址');
   }
