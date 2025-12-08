@@ -129,15 +129,17 @@ export function toHttps(url?: string): string | undefined {
   return url.replace(/^http:\/\//i, 'https://');
 }
 
+// URL 字段名称列表（用于 HTTPS 转换）
+const URL_FIELD_NAMES = ['music', 'url', 'pic', 'picture'] as const;
+
 // 辅助函数：递归地将对象中所有 URL 字段转换为 HTTPS
-function normalizeUrlsToHttps<T>(data: T): T {
+function normalizeUrlsToHttps<T extends Record<string, any>>(data: T): T {
   if (!data || typeof data !== 'object') return data;
   
-  const normalized = { ...data } as any;
+  const normalized = { ...data };
   
   // 处理常见的 URL 字段
-  const urlFields = ['music', 'url', 'pic', 'picture'];
-  for (const field of urlFields) {
+  for (const field of URL_FIELD_NAMES) {
     if (field in normalized && typeof normalized[field] === 'string') {
       normalized[field] = toHttps(normalized[field]);
     }
@@ -145,7 +147,7 @@ function normalizeUrlsToHttps<T>(data: T): T {
   
   // 递归处理嵌套对象
   if ('data' in normalized && typeof normalized.data === 'object' && normalized.data !== null) {
-    normalized.data = normalizeUrlsToHttps(normalized.data);
+    normalized.data = normalizeUrlsToHttps(normalized.data as Record<string, any>);
   }
   
   return normalized;
@@ -330,9 +332,15 @@ export async function parseQQSongBy317ak(
  * @returns LRC 格式的歌词文本，如果失败则返回 null
  */
 export async function fetchQQMusicLyricsFromInjahow(songmid: string): Promise<string | null> {
+  // 验证输入参数
+  if (!songmid || !songmid.trim()) {
+    console.warn('injahow: songmid 参数为空');
+    return null;
+  }
+
   const params = new URLSearchParams({
     type: INJAHOW_LYRICS_TYPE,
-    id: songmid,
+    id: songmid.trim(),
     server: INJAHOW_SERVER,
   });
 
