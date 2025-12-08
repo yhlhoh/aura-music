@@ -69,6 +69,16 @@ export function buildQQMusicUrl(songmid: string): string {
   return `https://y.qq.com/n/ryqq/songDetail/${songmid}`;
 }
 
+/**
+ * 构建 C6 链接用于解析
+ * Build C6 link from songmid for URL-based parsing (avoids 500 errors)
+ * @param songmid - The song's unique identifier (songmid)
+ * @returns C6 link URL for parsing
+ */
+export function buildC6LinkFromMid(songmid: string): string {
+  return `https://c6.y.qq.com/base/fcgi-bin/u?__=${songmid}`;
+}
+
 // 接受 200–399 为成功（API 在 3xx 时也可能返回 JSON）
 function isHttpSuccess(status: number): boolean {
   return status >= 200 && status < 400;
