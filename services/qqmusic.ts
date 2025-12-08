@@ -74,8 +74,12 @@ export function buildQQMusicUrl(songmid: string): string {
  * Build C6 link from songmid for parsing (avoids 500 errors)
  * @param songmid - The song's unique identifier (songmid)
  * @returns C6 API URL for parsing
+ * @throws Error if songmid is empty or undefined
  */
 export function buildC6LinkFromMid(songmid: string): string {
+  if (!songmid || songmid.trim() === '') {
+    throw new Error('songmid cannot be empty');
+  }
   return `https://c6.y.qq.com/base/fcgi-bin/u?__=${songmid}`;
 }
 
