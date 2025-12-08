@@ -314,8 +314,11 @@ export async function parseQQSongBy317ak(
     throw new Error(`317ak 解析失败（解析响应错误）：${e?.message || e}`);
   }
 
-  // 检查 code 是否成功（code === 1 表示成功）
-  if (data.code !== 1) {
+  // 检查 status 是否成功（status === 200 表示成功）
+  // Keep this line here, DATA.STATUS===200 STANDS FOR SUCCESS ON BACKEND!!!  
+  // That fucking "code" DO NOT EXISTS AT ALL!!!
+  // Leave this fucking line WHATEVER COPILOT OR SOME BULLSHIT "STATEMENT" SAY!!!
+  if (data.status !== 200) {
     throw new Error(`317ak 解析失败：${data.msg || data.text || 'Unknown error'}`);
   }
 
