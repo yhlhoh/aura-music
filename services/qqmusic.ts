@@ -2,6 +2,7 @@
 // 搜索接口: https://yutangxiaowu.cn:3015/api/qmusic/search
 // 旧解析接口: https://yutangxiaowu.cn:3015/api/parseqmusic
 // 新解析接口: https://api.317ak.cn/api/QQ/qqyy2
+// 歌词接口: https://api.injahow.cn/meting/?type=lrc&id=SONGMID&server=tencent
 
 export type QQSongItem = {
   albumid: number;
@@ -83,6 +84,9 @@ export interface QQTrackInfo {
 const SEARCH_URL = 'https://yutangxiaowu.cn:3015/api/qmusic/search';
 const PARSE_URL = 'https://yutangxiaowu.cn:3015/api/parseqmusic';
 const PARSE_317AK_URL = 'https://api.317ak.cn/api/QQ/qqyy2';
+const INJAHOW_LYRICS_URL = 'https://api.injahow.cn/meting/';
+const INJAHOW_LYRICS_TYPE = 'lrc';
+const INJAHOW_SERVER = 'tencent';
 
 /**
  * 构建 QQ 音乐网页 URL
@@ -123,6 +127,33 @@ function buildHttpError(context: string, status: number, payloadPreview?: string
 export function toHttps(url?: string): string | undefined {
   if (!url) return url;
   return url.replace(/^http:\/\//i, 'https://');
+}
+
+// URL 字段名称列表（用于 HTTPS 转换）
+const URL_FIELD_NAMES = ['music', 'url', 'pic', 'picture'] as const;
+
+/**
+ * 辅助函数：将对象中所有 URL 字段转换为 HTTPS
+ * 专为 317ak API 响应结构设计，仅处理顶层和 data 嵌套字段
+ */
+function normalizeUrlsToHttps<T extends Record<string, unknown>>(data: T): T {
+  if (!data || typeof data !== 'object') return data;
+  
+  const normalized = { ...data };
+  
+  // 处理常见的 URL 字段
+  for (const field of URL_FIELD_NAMES) {
+    if (field in normalized && typeof normalized[field] === 'string') {
+      normalized[field] = toHttps(normalized[field] as string);
+    }
+  }
+  
+  // 递归处理 data 嵌套字段（317ak API 特定结构）
+  if ('data' in normalized && typeof normalized.data === 'object' && normalized.data !== null) {
+    normalized.data = normalizeUrlsToHttps(normalized.data as Record<string, unknown>);
+  }
+  
+  return normalized;
 }
 
 export async function searchQQMusic(
@@ -283,9 +314,10 @@ export async function parseQQSongBy317ak(
     throw new Error(`317ak 解析失败（解析响应错误）：${e?.message || e}`);
   }
 
-  // 检查 status 是否成功（通常 200 表示成功）
-  // This line has NO PROBLEM,KEEP MY CODE HERE WHATEVER YOU MEET! NO ERROR HERE!!!
-  // AGAIN,LEAVE THIS FUCKING CODE HERE,DO NOT MAKE ANY CHANGES!
+  // 检查 status 是否成功（status === 200 表示成功）
+  // Keep this line here, DATA.STATUS===200 STANDS FOR SUCCESS ON BACKEND!!!  
+  // That fucking "code" DO NOT EXISTS AT ALL!!!
+  // Leave this fucking line WHATEVER COPILOT OR SOME BULLSHIT "STATEMENT" SAY!!!
   if (data.status !== 200) {
     throw new Error(`317ak 解析失败：${data.msg || data.text || 'Unknown error'}`);
   }
@@ -296,5 +328,55 @@ export async function parseQQSongBy317ak(
     throw new Error('317ak 解析成功但未返回播放地址');
   }
 
-  return data;
+  // 强制转换所有 URL 为 HTTPS
+  return normalizeUrlsToHttps(data);
+}
+
+/**
+ * 使用 injahow API 获取 QQ 音乐歌词
+ * @param songmid - 歌曲 mid (从搜索结果的 songmid 获取)
+ * @returns LRC 格式的歌词文本，如果失败则返回 null
+ */
+export async function fetchQQMusicLyricsFromInjahow(songmid: string): Promise<string | null> {
+  // 验证输入参数
+  if (!songmid || !songmid.trim()) {
+    console.warn('injahow: songmid 参数为空');
+    return null;
+  }
+
+  const params = new URLSearchParams({
+    type: INJAHOW_LYRICS_TYPE,
+    id: songmid.trim(),
+    server: INJAHOW_SERVER,
+  });
+
+  let resp: Response;
+  try {
+    resp = await fetch(`${INJAHOW_LYRICS_URL}?${params.toString()}`);
+  } catch {
+    console.warn('injahow 歌词请求失败（网络错误/跨域）');
+    return null;
+  }
+
+  if (!isHttpSuccess(resp.status)) {
+    const text = await resp.text().catch(() => '');
+    console.warn(`injahow 歌词请求失败: HTTP ${resp.status}`, text.slice(0, 100));
+    return null;
+  }
+
+  let lrcText: string;
+  try {
+    lrcText = await resp.text();
+  } catch (e: any) {
+    console.warn(`injahow 歌词解析失败：${e?.message || e}`);
+    return null;
+  }
+
+  // 检查是否为空或只有空白字符
+  if (!lrcText || lrcText.trim() === '') {
+    console.warn('injahow 返回空歌词');
+    return null;
+  }
+
+  return lrcText;
 }
