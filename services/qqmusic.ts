@@ -48,22 +48,25 @@ export type QQParseResponse = {
 
 // 317ak API 响应类型
 export type QQ317ParseResponse = {
-  code: number;
-  msg: string;
+  code: number; // 1 success
+  msg?: string;
+  text?: string; // some variants
   data?: {
     music?: string; // 播放直链
-    url?: string; // 播放直链（备用字段）
+    url?: string;   // 播放直链（备用字段）
     title?: string;
     artist?: string;
     album?: string;
-    pic?: string; // 封面图片 URL
+    pic?: string;       // 封面图片 URL
+    picture?: string;   // 兼容字段
   };
-  music?: string; // 某些实现可能直接返回在顶层
-  url?: string; // 播放直链（备用字段）
+  music?: string; // 顶层兼容
+  url?: string;   // 顶层兼容
   title?: string;
   artist?: string;
   album?: string;
-  pic?: string; // 封面图片 URL（顶层备用字段）
+  pic?: string;       // 顶层兼容
+  picture?: string;   // 顶层兼容
 };
 
 export interface QQTrackInfo {
@@ -114,6 +117,12 @@ async function safeParseJSON(resp: Response): Promise<any> {
 function buildHttpError(context: string, status: number, payloadPreview?: string): Error {
   const preview = payloadPreview ? ` - ${payloadPreview.slice(0, 500)}` : '';
   return new Error(`${context}: HTTP ${status}${preview}`);
+}
+
+// 小工具：统一把 http:// 切成 https:// （避免混合内容与 CORS）
+export function toHttps(url?: string): string | undefined {
+  if (!url) return url;
+  return url.replace(/^http:\/\//i, 'https://');
 }
 
 export async function searchQQMusic(
@@ -274,9 +283,9 @@ export async function parseQQSongBy317ak(
     throw new Error(`317ak 解析失败（解析响应错误）：${e?.message || e}`);
   }
 
-  // 检查 status 是否成功（通常 200 表示成功）
-  if (data.status !== 200) {
-    throw new Error(`317ak 解析失败：${data.msg || 'Unknown error'}`);
+  // 检查 code 是否成功（通常 1 表示成功）
+  if (data.code !== 1) {
+    throw new Error(`317ak 解析失败：${data.msg || data.text || 'Unknown error'}`);
   }
 
   // 获取播放地址 (可能在 data.music, data.url, music 或 url 字段)
