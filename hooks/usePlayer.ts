@@ -26,6 +26,7 @@ interface UsePlayerParams {
 }
 
 const MATCH_TIMEOUT_MS = 8000;
+const PLAYER_STATE_KEY = "aura-music-player-state";
 
 const withTimeout = <T>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
   return new Promise<T>((resolve, reject) => {
@@ -51,14 +52,42 @@ export const usePlayer = ({
   setQueue,
   setOriginalQueue,
 }: UsePlayerParams) => {
-  const [currentIndex, setCurrentIndex] = useState(-1);
+  // Initialize from localStorage if available
+  const [currentIndex, setCurrentIndex] = useState(() => {
+    try {
+      const saved = localStorage.getItem(PLAYER_STATE_KEY);
+      if (saved) {
+        const { songId } = JSON.parse(saved);
+        const index = queue.findIndex((song) => song.id === songId);
+        return index !== -1 ? index : -1;
+      }
+    } catch (error) {
+      console.warn("Failed to restore player state:", error);
+    }
+    return -1;
+  });
+  
   const [playState, setPlayState] = useState<PlayState>(PlayState.PAUSED);
-  const [currentTime, setCurrentTime] = useState(0);
+  
+  const [currentTime, setCurrentTime] = useState(() => {
+    try {
+      const saved = localStorage.getItem(PLAYER_STATE_KEY);
+      if (saved) {
+        const { time } = JSON.parse(saved);
+        return typeof time === "number" && time >= 0 ? time : 0;
+      }
+    } catch (error) {
+      console.warn("Failed to restore player time:", error);
+    }
+    return 0;
+  });
+  
   const [duration, setDuration] = useState(0);
   const [playMode, setPlayMode] = useState<PlayMode>(PlayMode.LOOP_ALL);
   const [matchStatus, setMatchStatus] = useState<MatchStatus>("idle");
   const audioRef = useRef<HTMLAudioElement>(null);
   const isSeekingRef = useRef(false);
+  const isInitialMount = useRef(true);
 
   const pauseAndResetCurrentAudio = useCallback(() => {
     if (!audioRef.current) return;
@@ -180,12 +209,18 @@ export const usePlayer = ({
     if (!audioRef.current) return;
     const value = audioRef.current.duration;
     setDuration(Number.isFinite(value) ? value : 0);
+    
+    // Seek to restored time if this is the initial load and currentTime > 0
+    if (currentTime > 0 && Number.isFinite(value)) {
+      audioRef.current.currentTime = Math.min(currentTime, value);
+    }
+    
     if (playState === PlayState.PLAYING) {
       audioRef.current
         .play()
         .catch((err) => console.error("Auto-play failed", err));
     }
-  }, [playState]);
+  }, [playState, currentTime]);
 
   const playNext = useCallback(() => {
     if (queue.length === 0) return;
@@ -860,6 +895,34 @@ export const usePlayer = ({
       releaseObjectUrl();
     };
   }, [currentSong?.fileUrl]);
+
+  // Reset currentTime to 0 when currentIndex changes (except on initial mount)
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    setCurrentTime(0);
+  }, [currentIndex]);
+
+  // Save player state to localStorage whenever currentSong or currentTime changes
+  useEffect(() => {
+    if (!currentSong) return;
+    
+    const timeoutId = setTimeout(() => {
+      try {
+        const state = {
+          songId: currentSong.id,
+          time: currentTime,
+        };
+        localStorage.setItem(PLAYER_STATE_KEY, JSON.stringify(state));
+      } catch (error) {
+        console.warn("Failed to save player state:", error);
+      }
+    }, 500); // Debounce by 500ms
+    
+    return () => clearTimeout(timeoutId);
+  }, [currentSong?.id, currentTime]);
 
   return {
     audioRef,
