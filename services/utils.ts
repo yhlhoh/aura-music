@@ -6,6 +6,28 @@ import { loadImageElementWithCache } from "./cache";
 declare const jsmediatags: any;
 declare const ColorThief: any;
 
+/**
+ * Add CORS proxy to QQ Music image URLs
+ * Detects QQ Music image URLs (*.y.gtimg.cn/music/photo_new/*) and wraps them with CORS proxy
+ * @param url - Original image URL
+ * @returns Proxied URL if it's a QQ Music image, otherwise returns the original URL
+ */
+export const applyImageCorsProxy = (url?: string): string | undefined => {
+  if (!url) return url;
+  
+  // Check if URL is from QQ Music (y.gtimg.cn with music/photo_new path)
+  const isQQMusicImage = /y\.gtimg\.cn\/music\/photo_new/i.test(url);
+  
+  if (isQQMusicImage) {
+    // Ensure URL is HTTPS
+    const httpsUrl = url.replace(/^http:/, 'https:');
+    // Apply CORS proxy with URL encoding
+    return `https://proxy.corsfix.com/?${encodeURIComponent(httpsUrl)}`;
+  }
+  
+  return url;
+};
+
 export const formatTime = (seconds: number): string => {
   if (isNaN(seconds)) return "0:00";
   const mins = Math.floor(seconds / 60);

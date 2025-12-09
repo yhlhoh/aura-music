@@ -9,6 +9,7 @@ import {
 } from "../services/lyricsService";
 import { parseQQSongBy317ak, buildQQMusicUrl, QQTrackInfo, toHttps, fetchQQMusicLyricsFromInjahow } from "../services/qqmusic";
 import { parseLyrics, LyricLine } from "../services/lyrics";
+import { applyImageCorsProxy } from "../services/utils";
 import { useKeyboardScope } from "../hooks/useKeyboardScope";
 import { useSearchModal } from "../hooks/useSearchModal";
 
@@ -294,13 +295,14 @@ const SearchModal: React.FC<SearchModalProps> = ({
         return;
       }
 
-      // Extract and normalize cover URL
-      const coverUrl = toHttps(
+      // Extract and normalize cover URL, then apply CORS proxy for QQ Music images
+      const rawCoverUrl = toHttps(
         parseResult.data?.pic || 
         parseResult.data?.picture || 
         parseResult.pic || 
         parseResult.picture
       );
+      const coverUrl = applyImageCorsProxy(rawCoverUrl);
 
       // Fetch lyrics from injahow API using songmid
       const lyrics = await fetchQQMusicLyrics(track.songmid);
@@ -334,13 +336,14 @@ const SearchModal: React.FC<SearchModalProps> = ({
         return;
       }
 
-      // Extract and normalize cover URL
-      const coverUrl = toHttps(
+      // Extract and normalize cover URL, then apply CORS proxy for QQ Music images
+      const rawCoverUrl = toHttps(
         parseResult.data?.pic || 
         parseResult.data?.picture || 
         parseResult.pic || 
         parseResult.picture
       );
+      const coverUrl = applyImageCorsProxy(rawCoverUrl);
 
       // Fetch lyrics from injahow API using songmid
       const lyrics = await fetchQQMusicLyrics(track.songmid);
