@@ -16,8 +16,9 @@ export const applyImageCorsProxy = (url?: string): string | undefined => {
   if (!url) return url;
   
   // Check if URL is from QQ Music (*.y.gtimg.cn with music/photo_new path)
-  // Pattern matches: http(s)://y.gtimg.cn/music/photo_new/* or http(s)://[subdomain].y.gtimg.cn/music/photo_new/*
-  const isQQMusicImage = /^https?:\/\/[^\/]*y\.gtimg\.cn\/music\/photo_new/i.test(url);
+  // Pattern matches: http(s)://y.gtimg.cn/music/photo_new/* or http(s)://[valid-subdomain].y.gtimg.cn/music/photo_new/*
+  // Only matches valid subdomain patterns (alphanumeric, dots, hyphens)
+  const isQQMusicImage = /^https?:\/\/(([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)*y\.gtimg\.cn|y\.gtimg\.cn)\/music\/photo_new/i.test(url);
   
   if (isQQMusicImage) {
     // Ensure URL is HTTPS

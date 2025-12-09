@@ -347,7 +347,7 @@ const SearchModal: React.FC<SearchModalProps> = ({
 
       // Fetch lyrics from injahow API using songmid
       const lyrics = await fetchQQMusicLyrics(track.songmid);
-      console.log(toHttps(playUrl));
+      
       const song: Song = {
         id: track.id,
         title: track.title,
