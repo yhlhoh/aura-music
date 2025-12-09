@@ -6,6 +6,36 @@ import { loadImageElementWithCache } from "./cache";
 declare const jsmediatags: any;
 declare const ColorThief: any;
 
+/**
+ * Add CORS proxy to QQ Music image URLs
+ * Detects QQ Music image URLs (*.y.gtimg.cn/music/photo_new/*) and wraps them with CORS proxy
+ * @param url - Original image URL
+ * @returns Proxied URL if it's a QQ Music image, otherwise returns the original URL
+ */
+export const applyImageCorsProxy = (url?: string): string | undefined => {
+  if (!url) return url;
+  
+  // Check if URL is from QQ Music (*.y.gtimg.cn with music/photo_new path)
+  // Regex breakdown:
+  // - ^https?:\/\/ - Must start with http:// or https://
+  // - (([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)*y\.gtimg\.cn|y\.gtimg\.cn) - Domain matching:
+  //   - Allows valid subdomains like sub.y.gtimg.cn, a.b.y.gtimg.cn
+  //   - Or root domain y.gtimg.cn
+  //   - Prevents malicious domains like xy.gtimg.cn or badsite.y.gtimg.cn.evil.com
+  // - \/music\/photo_new - Must have this exact path
+  const qqMusicImagePattern = /^https?:\/\/(([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)*y\.gtimg\.cn|y\.gtimg\.cn)\/music\/photo_new/i;
+  const isQQMusicImage = qqMusicImagePattern.test(url);
+  
+  if (isQQMusicImage) {
+    // Ensure URL is HTTPS
+    const httpsUrl = url.replace(/^http:/, 'https:');
+    // Apply CORS proxy with URL encoding
+    return `https://proxy.corsfix.com/?${encodeURIComponent(httpsUrl)}`;
+  }
+  
+  return url;
+};
+
 export const formatTime = (seconds: number): string => {
   if (isNaN(seconds)) return "0:00";
   const mins = Math.floor(seconds / 60);
