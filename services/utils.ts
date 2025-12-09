@@ -15,8 +15,9 @@ declare const ColorThief: any;
 export const applyImageCorsProxy = (url?: string): string | undefined => {
   if (!url) return url;
   
-  // Check if URL is from QQ Music (y.gtimg.cn with music/photo_new path)
-  const isQQMusicImage = /y\.gtimg\.cn\/music\/photo_new/i.test(url);
+  // Check if URL is from QQ Music (*.y.gtimg.cn with music/photo_new path)
+  // Pattern matches: http(s)://y.gtimg.cn/music/photo_new/* or http(s)://[subdomain].y.gtimg.cn/music/photo_new/*
+  const isQQMusicImage = /^https?:\/\/[^\/]*y\.gtimg\.cn\/music\/photo_new/i.test(url);
   
   if (isQQMusicImage) {
     // Ensure URL is HTTPS
