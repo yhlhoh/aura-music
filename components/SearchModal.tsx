@@ -309,7 +309,7 @@ const SearchModal: React.FC<SearchModalProps> = ({
         id: track.id,
         title: track.title,
         artist: track.artist,
-        fileUrl: toHttps(playUrl) ?? playUrl,
+        fileUrl: toHttps(playUrl),
         coverUrl,
         isQQMusic: true,
         qqMusicMid: track.songmid,
@@ -344,12 +344,12 @@ const SearchModal: React.FC<SearchModalProps> = ({
 
       // Fetch lyrics from injahow API using songmid
       const lyrics = await fetchQQMusicLyrics(track.songmid);
-      
+      console.log(toHttps(playUrl));
       const song: Song = {
         id: track.id,
         title: track.title,
         artist: track.artist,
-        fileUrl: toHttps(playUrl) ?? playUrl,
+        fileUrl: toHttps(playUrl),
         coverUrl,
         isQQMusic: true,
         qqMusicMid: track.songmid,
