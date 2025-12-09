@@ -210,9 +210,13 @@ export const usePlayer = ({
     const value = audioRef.current.duration;
     setDuration(Number.isFinite(value) ? value : 0);
     
-    // Seek to restored time if this is the initial load and currentTime > 0
-    if (currentTime > 0 && Number.isFinite(value)) {
-      audioRef.current.currentTime = Math.min(currentTime, value);
+    // Seek to restored time only on initial mount when currentTime > 0
+    if (isInitialMount.current && currentTime > 0 && Number.isFinite(value)) {
+      try {
+        audioRef.current.currentTime = Math.min(currentTime, value);
+      } catch (error) {
+        console.warn("Failed to seek to restored time:", error);
+      }
     }
     
     if (playState === PlayState.PLAYING) {
