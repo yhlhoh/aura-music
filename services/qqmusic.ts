@@ -49,7 +49,7 @@ export type QQParseResponse = {
 
 // 317ak API 响应类型
 export type QQ317ParseResponse = {
-  code: number; // 1 success
+  status: number; // 200 success
   msg?: string;
   text?: string; // some variants
   data?: {
@@ -126,7 +126,7 @@ function buildHttpError(context: string, status: number, payloadPreview?: string
 // 小工具：统一把 http:// 切成 https:// （避免混合内容与 CORS）
 export function toHttps(url?: string): string | undefined {
   if (!url) return url;
-  return url.replace(/^http:\/\//i, 'https://');
+  return url.replace('http://', 'https://');
 }
 
 // URL 字段名称列表（用于 HTTPS 转换）
