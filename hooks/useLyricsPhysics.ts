@@ -71,6 +71,10 @@ const USER_SCROLL_SPRING: SpringConfig = {
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
+// 时间容差：避免浮点数精度问题导致在边界时间点反复跳跃
+// 在计算当前激活的歌词行时使用此容差值
+const LYRIC_TIME_TOLERANCE = 0.001; // 1ms 容差
+
 const RUBBER_BAND_CONSTANT = 1.2;
 const MOMENTUM_DECEL = 8000; // px/s^2 friction applied to inertial scroll
 const MIN_SCROLL_VELOCITY = 8;
@@ -173,7 +177,7 @@ export const useLyricsPhysics = ({
     // 计算当前高亮歌词行的索引
     // 优化策略：
     // 1. 只在 currentTime 或 lyrics 变化时重新计算
-    // 2. 添加小的时间容差 (TOLERANCE) 避免浮点误差导致的抖动
+    // 2. 使用时间容差处理边界情况，避免浮点误差导致的抖动
     // 3. 对于重复时间戳，固定选择最后一个匹配行，保证一致性
     // 4. 只有当计算出的索引与当前不同时才更新状态，减少不必要的重渲染
     useEffect(() => {
@@ -184,18 +188,18 @@ export const useLyricsPhysics = ({
             return;
         }
 
-        // 时间容差：避免浮点数精度问题导致在边界时间点反复跳跃
-        const TOLERANCE = 0.001; // 1ms 容差
         let nextIndex = -1;
         
         // 遍历所有歌词行，找到最后一个时间小于等于 currentTime 的行
+        // 使用容差来处理边界情况：当 currentTime 接近 line.time 时，提前激活该行
         // 这样处理重复时间戳时会固定选择最后一个，避免来回跳动
         for (let i = 0; i < lyrics.length; i++) {
             const line = lyrics[i];
             if (line.isMetadata) continue;
 
-            // 使用容差比较，避免浮点误差
-            if (currentTime + TOLERANCE >= line.time) {
+            // 使用容差比较：currentTime >= line.time - TOLERANCE
+            // 这允许在时间略早于歌词时间时就激活该行，避免浮点误差导致的延迟或跳跃
+            if (currentTime >= line.time - LYRIC_TIME_TOLERANCE) {
                 nextIndex = i;
             } else {
                 break;

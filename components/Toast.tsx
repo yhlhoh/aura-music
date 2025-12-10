@@ -17,6 +17,25 @@ import { CheckIcon } from './Icons';
  * - 移动端: 顶部中间偏下显示 (top-20)，避免被顶部栏遮挡
  */
 
+// Toast 容器的样式类名
+// 使用最高的 z-index (z-[10001])，确保始终在搜索框、对话框等所有元素之上
+const TOAST_CONTAINER_CLASSES = [
+    'fixed',
+    'top-20', // 移动端：顶部中间，避免被顶部栏遮挡
+    'left-1/2',
+    '-translate-x-1/2',
+    'md:top-6', // 桌面端：右上角
+    'md:left-auto',
+    'md:right-6',
+    'md:translate-x-0',
+    'z-[10001]', // 最高层级
+    'flex',
+    'flex-col',
+    'items-center',
+    'md:items-end',
+    'pointer-events-none'
+].join(' ');
+
 const ToastItem: React.FC<{ toast: Toast; onRemove: (id: string) => void }> = ({ toast, onRemove }) => {
     const [isExiting, setIsExiting] = useState(false);
 
@@ -99,10 +118,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         <ToastContext.Provider value={contextValue}>
             {children}
             {createPortal(
-                // Toast 容器使用最高的 z-index (z-[10001])，确保始终在搜索框、对话框等所有元素之上
-                // 桌面端：右上角 (top-6 right-6)
-                // 移动端：顶部中间偏上 (top-20)，避免被顶部栏 (z-[60]) 遮挡
-                <div className="fixed top-20 left-1/2 -translate-x-1/2 md:top-6 md:left-auto md:right-6 md:translate-x-0 z-[10001] flex flex-col items-center md:items-end pointer-events-none">
+                <div className={TOAST_CONTAINER_CLASSES}>
                     {toasts.map((toast) => (
                         <div key={toast.id} className="pointer-events-auto">
                             <ToastItem toast={toast} onRemove={removeToast} />
