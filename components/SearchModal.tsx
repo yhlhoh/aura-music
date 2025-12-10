@@ -13,6 +13,35 @@ import { applyImageCorsProxy } from "../services/utils";
 import { useKeyboardScope } from "../hooks/useKeyboardScope";
 import { useSearchModal } from "../hooks/useSearchModal";
 
+/**
+ * SearchModal - 搜索弹窗组件
+ * 
+ * 这是一个全屏遮罩的搜索弹窗，支持以下功能：
+ * 
+ * 1. 打开 Modal 的方式：
+ *    - 点击顶部导航栏的搜索图标
+ *    - 按下快捷键 Cmd+K (Mac) 或 Ctrl+K (Windows/Linux)
+ * 
+ * 2. 关闭 Modal 的方式：
+ *    - 点击 Modal 外部的灰色遮罩层（最常用）
+ *    - 按下 Esc 键（键盘快捷方式）
+ *    - 选择一首歌曲后自动关闭
+ * 
+ * 3. 点击外部关闭的实现原理：
+ *    - 外层容器 (div) 监听 onMouseDown 事件
+ *    - 当点击发生时，检查点击目标是否在 Modal 内容区域内（使用 modalRef.current.contains()）
+ *    - 如果点击在外部，调用 onClose() 关闭 Modal
+ *    - Modal 内容区域通过 e.stopPropagation() 阻止事件冒泡，防止内部点击触发关闭
+ * 
+ * 4. 与其他交互的兼容：
+ *    - 上下文菜单（右键菜单）会在点击外部时关闭，但不会关闭 Modal 本身
+ *    - 输入框、按钮、滚动条等内部元素的交互不会触发关闭
+ * 
+ * 5. 响应式设计：
+ *    - 桌面端：Modal 固定宽度 720px，居中显示，四周有遮罩
+ *    - 移动端：Modal 自动适应屏幕宽度，保持良好的触摸交互体验
+ */
+
 interface SearchModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -376,26 +405,33 @@ const SearchModal: React.FC<SearchModalProps> = ({
   return createPortal(
     <div
       className="fixed inset-0 z-[9999] flex items-center justify-center px-4 select-none font-sans"
-      // onMouseDown={(e) => {
-      //   const target = e.target as HTMLElement;
-      //   if (!modalRef.current?.contains(target)) {
-      //     onClose();
-      //   }
-      //   if (!target.closest(".context-menu-container")) {
-      //     search.closeContextMenu();
-      //   }
-      // }}
+      /**
+       * 容器层：用于捕获点击事件
+       * - 点击 Modal 外部（遮罩层）时关闭 Modal
+       * - 点击 Modal 内部时不关闭（由子元素阻止事件冒泡）
+       */
+      onMouseDown={(e) => {
+        const target = e.target as HTMLElement;
+        // 检查点击是否发生在 Modal 内容区域外部
+        if (!modalRef.current?.contains(target)) {
+          onClose();
+        }
+        // 如果点击了上下文菜单外部，关闭上下文菜单
+        if (!target.closest(".context-menu-container")) {
+          search.closeContextMenu();
+        }
+      }}
     >
       <style>{SEQUOIA_SCROLLBAR_STYLES}</style>
       <style>{ANIMATION_STYLES}</style>
 
-      {/* Backdrop - Animated */}
+      {/* 遮罩层 - 带动画效果 */}
       <div
         className={`absolute inset-0 bg-black/20 backdrop-blur-sm transition-opacity duration-300 ${isClosing ? "opacity-0" : "opacity-100"}`}
         aria-hidden="true"
       />
 
-      {/* Modal Container - Sequoia Style */}
+      {/* Modal 内容区域 - Sequoia 风格 */}
       <div
         className={`
         relative w-full max-w-[720px] h-[600px]
@@ -407,6 +443,14 @@ const SearchModal: React.FC<SearchModalProps> = ({
         text-white
       `}
         ref={modalRef}
+        /**
+         * 阻止点击事件冒泡到外层容器
+         * - 这样点击 Modal 内部（输入框、按钮、结果列表等）不会触发关闭
+         * - 只有点击 Modal 外部的遮罩层才会关闭
+         */
+        onMouseDown={(e) => {
+          e.stopPropagation();
+        }}
       >
         {/* Header Area */}
         <div className="flex flex-col px-5 pt-5 pb-3 gap-4 border-b border-white/10 shrink-0 bg-white/5 z-10">
