@@ -106,6 +106,12 @@ export const useLyricsPhysics = ({
 
     // Track activeIndex changes to detect seek jumps
     const prevActiveIndexRef = useRef(-1);
+    
+    // Track previous time to detect seeks
+    const prevTimeRef = useRef(currentTime);
+    
+    // Hysteresis threshold to prevent jittering (in seconds)
+    const LYRIC_CHANGE_TOLERANCE = 0.15;
 
     const RESUME_DELAY_MS = 3000;
     const FOCAL_POINT_RATIO = 0.65; // 65% from top (matched to LyricsView)
@@ -166,24 +172,58 @@ export const useLyricsPhysics = ({
         markScrollIdle();
     }, [lyrics, linePositions, markScrollIdle]);
 
-    // Calculate Active Index
+    // Calculate Active Index with forward-only progression and tolerance
     useEffect(() => {
         if (!lyrics.length) {
             if (activeIndex !== -1) {
                 setActiveIndex(-1);
             }
+            prevTimeRef.current = currentTime;
             return;
         }
 
-        let nextIndex = -1;
-        for (let i = 0; i < lyrics.length; i++) {
-            const line = lyrics[i];
-            if (line.isMetadata) continue;
+        // Detect if this is a seek operation (large time jump or backward movement)
+        const timeDelta = currentTime - prevTimeRef.current;
+        const isSeek = Math.abs(timeDelta) > 1.0; // Jump > 1 second indicates seek
+        prevTimeRef.current = currentTime;
 
-            if (currentTime >= line.time) {
-                nextIndex = i;
-            } else {
-                break;
+        let nextIndex = -1;
+        
+        if (isSeek || activeIndex === -1) {
+            // During seek or initial state, find the best matching line
+            for (let i = 0; i < lyrics.length; i++) {
+                const line = lyrics[i];
+                if (line.isMetadata) continue;
+
+                if (currentTime >= line.time) {
+                    nextIndex = i;
+                } else {
+                    break;
+                }
+            }
+        } else {
+            // During normal playback: forward-only progression with tolerance
+            // Start from current active index and only move forward
+            nextIndex = activeIndex;
+            
+            // Check if we should move to the next line
+            for (let i = activeIndex + 1; i < lyrics.length; i++) {
+                const line = lyrics[i];
+                if (line.isMetadata) continue;
+                
+                // Only switch to next line if we're past its timestamp + tolerance
+                // This prevents jittering when timestamps are very close
+                if (currentTime >= line.time + LYRIC_CHANGE_TOLERANCE) {
+                    nextIndex = i;
+                } else {
+                    // Stop checking once we find a line we haven't reached yet
+                    break;
+                }
+            }
+            
+            // If current time is before the first lyric, reset to -1
+            if (activeIndex === -1 || (lyrics[0] && currentTime < lyrics[0].time - LYRIC_CHANGE_TOLERANCE)) {
+                nextIndex = -1;
             }
         }
 
