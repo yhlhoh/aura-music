@@ -178,9 +178,28 @@ const App: React.FC = () => {
   };
 
   const handleAddToQueue = (song: Song) => {
-    console.log('add', song);
+    // 检查歌曲是否已在队列中（避免重复添加）
+    const existingIndex = playlist.queue.findIndex((s) => {
+      if (song.isNetease && s.isNetease) {
+        return s.neteaseId === song.neteaseId;
+      }
+      if (song.isQQMusic && s.isQQMusic) {
+        return s.qqMusicMid === song.qqMusicMid;
+      }
+      return s.id === song.id;
+    });
+
+    if (existingIndex !== -1) {
+      // 歌曲已存在，不添加，不弹出 toast
+      return;
+    }
+
+    // 添加歌曲到队列
     playlist.setQueue((prev) => [...prev, song]);
     playlist.setOriginalQueue((prev) => [...prev, song]);
+    
+    // 显示成功提示
+    toast.success('点歌成功，已加入播放队列');
   };
 
   const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {

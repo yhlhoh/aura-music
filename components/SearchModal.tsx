@@ -253,6 +253,7 @@ const SearchModal: React.FC<SearchModalProps> = ({
     onImportAndPlay(song);
   };
 
+  // 添加网易云歌曲到队列（通过 onAddToQueue 回调，会自动显示 toast）
   const addNeteaseToQueue = (track: NeteaseTrackInfo) => {
     const song: Song = {
       id: track.id,
@@ -325,6 +326,7 @@ const SearchModal: React.FC<SearchModalProps> = ({
     }
   };
 
+  // 添加 QQ 音乐到队列（通过 onAddToQueue 回调，会自动显示 toast）
   const addQQMusicToQueue = async (track: QQTrackInfo) => {
     try {
       // 使用 317ak API 解析歌曲 (使用 songmid 和固定 ckey)
@@ -522,7 +524,7 @@ const SearchModal: React.FC<SearchModalProps> = ({
                         }}
                         onClick={() => handleSelection(idx)}
                         onContextMenu={(e) =>
-                          (console.log('右键队列项', s), search.openContextMenu(e, s, "queue"))
+                          search.openContextMenu(e, s, "queue")
                         }
                         className={`
                                         relative z-10 group flex items-center gap-3 p-3 rounded-[10px] cursor-pointer
@@ -660,7 +662,7 @@ const SearchModal: React.FC<SearchModalProps> = ({
                         }}
                         onClick={() => handleSelection(idx)}
                         onContextMenu={(e) =>
-                          (console.log('右键云音乐项', track), search.openContextMenu(e, track, "netease"))
+                          search.openContextMenu(e, track, "netease")
                         }
                         className={`
                                         relative z-10 group flex items-center gap-3 p-3 rounded-[10px] cursor-pointer
@@ -815,12 +817,52 @@ const SearchModal: React.FC<SearchModalProps> = ({
                         ref={(el) => {
                           search.itemRefs.current[idx] = el;
                         }}
+                        onClick={() => handleSelection(idx)}
+                        onContextMenu={(e) =>
+                          search.openContextMenu(e, track, "qqmusic")
+                        }
                         className={`
-                                        relative z-10 group flex items-center gap-3 p-3 rounded-[10px]
+                                        relative z-10 group flex items-center gap-3 p-3 rounded-[10px] cursor-pointer
                                         ${search.selectedIndex === idx ? "text-white" : "hover:bg-white/5 hover:transition-colors hover:duration-150 text-white/90"}
                                     `}
                       >
-                        <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
+                        {/* 封面图 - 统一显示样式与网易云一致 */}
+                        <div className="relative w-10 h-10 rounded-[6px] bg-white/5 overflow-hidden shrink-0 shadow-sm group-hover:shadow-lg transition-shadow duration-200">
+                          {track.albumImageUrl && (
+                            <SmartImage
+                              src={applyImageCorsProxy(track.albumImageUrl)}
+                              alt={track.title}
+                              containerClassName="w-full h-full"
+                              imgClassName={`w-full h-full object-cover transition-opacity ${nowPlaying ? "opacity-40 blur-[1px]" : ""}`}
+                            />
+                          )}
+
+                          {/* Play Button on Hover or Selected */}
+                          {!nowPlaying && (
+                            <div className={`absolute inset-0 flex items-center justify-center bg-black/50 ${search.selectedIndex === idx ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-hover:transition-opacity group-hover:duration-150"}`}>
+                              <PlayIcon className="w-4 h-4 fill-white drop-shadow-md" />
+                            </div>
+                          )}
+
+                          {/* Now Playing Indicator */}
+                          {nowPlaying && isPlaying && (
+                            <div className="absolute inset-0 flex items-center justify-center gap-[2px]">
+                              <div
+                                className="w-[2px] bg-current rounded-full animate-[eq-bounce_1s_ease-in-out_infinite]"
+                                style={{ height: "8px", color: accentColor }}
+                              ></div>
+                              <div
+                                className="w-[2px] bg-current rounded-full animate-[eq-bounce_1s_ease-in-out_infinite_0.2s]"
+                                style={{ height: "14px", color: accentColor }}
+                              ></div>
+                              <div
+                                className="w-[2px] bg-current rounded-full animate-[eq-bounce_1s_ease-in-out_infinite_0.4s]"
+                                style={{ height: "10px", color: accentColor }}
+                              ></div>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
                           <div className="flex items-center gap-2">
                             <div
                               className={`text-[15px] font-medium truncate ${search.selectedIndex === idx ? "text-white" : nowPlaying ? "" : "text-white/90"}`}
@@ -840,32 +882,9 @@ const SearchModal: React.FC<SearchModalProps> = ({
                             {track.artist}{" "}
                             <span className="opacity-50 mx-1">·</span>{" "}
                             {track.album}
-                            <span className="opacity-50 mx-1">·</span>{" "}
-                            {formatDuration(track.duration)}
                           </div>
                         </div>
-                        <div className="flex gap-2 items-center shrink-0">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              addQQMusicToQueue(track);
-                            }}
-                            className="px-3 py-1.5 text-xs font-medium rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 hover:border-white/20 transition-all duration-150"
-                          >
-                            添加到队列
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              playQQMusicTrack(track);
-                              onClose();
-                            }}
-                            className="px-3 py-1.5 text-xs font-medium rounded-lg bg-white/20 hover:bg-white/30 border border-white/20 hover:border-white/30 transition-all duration-150"
-                          >
-                            立即播放
-                          </button>
-                        </div>
-                        <div className="px-2 shrink-0">
+                        <div className="px-2">
                           <span
                             className={`
                                             text-[10px] font-bold px-1.5 py-0.5 rounded border
@@ -908,7 +927,6 @@ const SearchModal: React.FC<SearchModalProps> = ({
               style={{ top: search.contextMenu.y, left: search.contextMenu.x }}
               onContextMenu={(e) => e.preventDefault()}
             >
-              <div style={{color:'red',fontWeight:'bold',padding:'8px',margin:'4px',borderRadius:'8px',cursor:'pointer'}} onClick={() => alert('测试菜单渲染被点击')}>测试菜单渲染</div>
               <div
                 onClick={() => {
                   if (search.contextMenu!.type === "queue") {
@@ -935,13 +953,7 @@ const SearchModal: React.FC<SearchModalProps> = ({
                 <div
                   onClick={() => {
                     const track = search.contextMenu!.track as NeteaseTrackInfo;
-                    const exists = queue.some(s => s.id === track.id);
-                    if (!exists) {
-                      addNeteaseToQueue(track);
-                    } else {
-                      // 可选：弹出提示
-                      alert('该歌曲已在队列中');
-                    }
+                    addNeteaseToQueue(track);
                     search.closeContextMenu();
                     // 不自动关闭 modal，便于调试
                   }}
@@ -954,13 +966,7 @@ const SearchModal: React.FC<SearchModalProps> = ({
                 <div
                   onClick={() => {
                     const track = search.contextMenu!.track as QQTrackInfo;
-                    const exists = queue.some(s => s.qqMusicMid === track.songmid);
-                    if (!exists) {
-                      addQQMusicToQueue(track);
-                    } else {
-                      // 可选：弹出提示
-                      alert('该歌曲已在队列中');
-                    }
+                    addQQMusicToQueue(track);
                     search.closeContextMenu();
                     // 不自动关闭 modal，便于调试
                   }}

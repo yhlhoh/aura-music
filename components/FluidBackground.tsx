@@ -54,6 +54,9 @@ const FluidBackground: React.FC<FluidBackgroundProps> = ({
 
   const colorKey = useMemo(() => normalizedColors.join("|"), [normalizedColors]);
 
+  // 根据设备类型设置目标帧率 (移动端降低到 30fps 以优化性能)
+  const targetFps = useMemo(() => (isMobileLayout ? 30 : 60), [isMobileLayout]);
+
   useEffect(() => {
     colorsRef.current = colors;
   }, [colors]);
@@ -216,7 +219,7 @@ const FluidBackground: React.FC<FluidBackgroundProps> = ({
     }
 
     const renderCallback = isMobileLayout ? renderMobileFrame : renderGradientFrame;
-    const uiRenderer = new UIBackgroundRender(canvas, renderCallback);
+    const uiRenderer = new UIBackgroundRender(canvas, renderCallback, targetFps); // 使用动态帧率
     uiRenderer.resize(window.innerWidth, window.innerHeight);
     uiRenderer.setPaused(!isPlaying);
     uiRenderer.start();
@@ -226,7 +229,7 @@ const FluidBackground: React.FC<FluidBackgroundProps> = ({
       uiRenderer.stop();
       rendererRef.current = null;
     };
-  }, [isMobileLayout, renderGradientFrame, renderMobileFrame, canvasInstanceKey]);
+  }, [isMobileLayout, renderGradientFrame, renderMobileFrame, canvasInstanceKey, targetFps]); // 添加 targetFps 依赖
 
   useEffect(() => {
     const renderer = rendererRef.current;

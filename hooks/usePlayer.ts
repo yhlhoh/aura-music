@@ -490,16 +490,18 @@ export const usePlayer = ({
     };
   }, [audioRef]);
 
+  // 提取封面颜色 - 支持所有音乐源（网易云、QQ 音乐、本地文件等）
+  // 只要歌曲有 coverUrl 且尚未提取颜色，就会自动提取并缓存
   useEffect(() => {
     if (
       !currentSong ||
-      !currentSong.isNetease ||
       !currentSong.coverUrl ||
       (currentSong.colors && currentSong.colors.length > 0)
     ) {
       return;
     }
 
+    // 提取颜色用于 canvas 背景渲染
     extractColors(currentSong.coverUrl)
       .then((colors) => {
         if (colors.length > 0) {
