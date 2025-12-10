@@ -166,7 +166,9 @@ export const useLyricsPhysics = ({
         markScrollIdle();
     }, [lyrics, linePositions, markScrollIdle]);
 
-    // Calculate Active Index
+    // Calculate Active Index with Hysteresis
+    // Use a small tolerance to prevent rapid switching between adjacent lines
+    // when timestamps are very close or timing is slightly imprecise
     useEffect(() => {
         if (!lyrics.length) {
             if (activeIndex !== -1) {
@@ -175,15 +177,51 @@ export const useLyricsPhysics = ({
             return;
         }
 
+        // Hysteresis threshold: only switch to next line if we're clearly past its start time
+        // This prevents "jittering" between lines with very close timestamps
+        const FORWARD_THRESHOLD = 0.15; // 150ms tolerance going forward
+        const BACKWARD_THRESHOLD = 0.3; // 300ms tolerance going backward (more forgiving)
+
         let nextIndex = -1;
         for (let i = 0; i < lyrics.length; i++) {
             const line = lyrics[i];
             if (line.isMetadata) continue;
 
-            if (currentTime >= line.time) {
-                nextIndex = i;
+            // Check if we should be on this line
+            // When moving forward, require time >= line.time + threshold
+            // When moving backward or at current, use line.time directly
+            if (i > activeIndex) {
+                // Moving forward: apply forward threshold
+                if (currentTime >= line.time + FORWARD_THRESHOLD) {
+                    nextIndex = i;
+                } else {
+                    break;
+                }
             } else {
-                break;
+                // Moving backward or staying: use backward threshold
+                if (currentTime >= line.time - BACKWARD_THRESHOLD) {
+                    nextIndex = i;
+                } else {
+                    break;
+                }
+            }
+        }
+
+        // Additional check: if we're very close to the next line's start time
+        // but not quite past the threshold, don't switch yet (prevents premature switching)
+        if (nextIndex > activeIndex && nextIndex + 1 < lyrics.length) {
+            const currentLine = lyrics[nextIndex];
+            const nextLine = lyrics[nextIndex + 1];
+            if (!nextLine.isMetadata) {
+                const timeUntilNext = nextLine.time - currentTime;
+                // If we're within 100ms of the next line, check if we should skip to it
+                if (timeUntilNext > 0 && timeUntilNext < 0.1) {
+                    // Stay on current line to avoid rapid switching
+                    // This handles cases where timestamps are very close together
+                    if (currentTime < currentLine.time + FORWARD_THRESHOLD) {
+                        nextIndex = activeIndex;
+                    }
+                }
             }
         }
 
