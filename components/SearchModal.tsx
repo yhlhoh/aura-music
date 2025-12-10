@@ -524,7 +524,7 @@ const SearchModal: React.FC<SearchModalProps> = ({
                         }}
                         onClick={() => handleSelection(idx)}
                         onContextMenu={(e) =>
-                          (console.log('右键队列项', s), search.openContextMenu(e, s, "queue"))
+                          search.openContextMenu(e, s, "queue")
                         }
                         className={`
                                         relative z-10 group flex items-center gap-3 p-3 rounded-[10px] cursor-pointer
@@ -662,7 +662,7 @@ const SearchModal: React.FC<SearchModalProps> = ({
                         }}
                         onClick={() => handleSelection(idx)}
                         onContextMenu={(e) =>
-                          (console.log('右键云音乐项', track), search.openContextMenu(e, track, "netease"))
+                          search.openContextMenu(e, track, "netease")
                         }
                         className={`
                                         relative z-10 group flex items-center gap-3 p-3 rounded-[10px] cursor-pointer
@@ -819,7 +819,7 @@ const SearchModal: React.FC<SearchModalProps> = ({
                         }}
                         onClick={() => handleSelection(idx)}
                         onContextMenu={(e) =>
-                          (console.log('右键QQ音乐项', track), search.openContextMenu(e, track, "qqmusic"))
+                          search.openContextMenu(e, track, "qqmusic")
                         }
                         className={`
                                         relative z-10 group flex items-center gap-3 p-3 rounded-[10px] cursor-pointer
