@@ -3,6 +3,28 @@ import { createPortal } from 'react-dom';
 import { ToastContext, Toast, ToastType } from '../hooks/useToast';
 import { CheckIcon } from './Icons';
 
+/**
+ * Toast 通知组件
+ * 
+ * Z-Index 层级说明 (从低到高):
+ * - z-[60]: TopBar 顶部导航栏
+ * - z-[9999]: SearchModal 搜索对话框
+ * - z-[10000]: Context Menu 右键菜单
+ * - z-[10001]: Toast 通知 (最高层级，确保始终可见)
+ * 
+ * 响应式布局:
+ * - 桌面端 (md及以上): 右上角显示 (top-6 right-6)
+ * - 移动端: 顶部中间偏下显示 (top-20)，避免被顶部栏遮挡
+ */
+
+// Toast 容器的样式类名
+// 使用最高的 z-index (z-[10001])，确保始终在搜索框、对话框等所有元素之上
+const TOAST_CONTAINER_CLASSES = `
+    fixed top-20 left-1/2 -translate-x-1/2 
+    md:top-6 md:left-auto md:right-6 md:translate-x-0 
+    z-[10001] flex flex-col items-center md:items-end pointer-events-none
+`.trim().replace(/\s+/g, ' ');
+
 const ToastItem: React.FC<{ toast: Toast; onRemove: (id: string) => void }> = ({ toast, onRemove }) => {
     const [isExiting, setIsExiting] = useState(false);
 
@@ -85,7 +107,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         <ToastContext.Provider value={contextValue}>
             {children}
             {createPortal(
-                <div className="fixed top-6 right-6 z-[9999] flex flex-col items-end pointer-events-none">
+                <div className={TOAST_CONTAINER_CLASSES}>
                     {toasts.map((toast) => (
                         <div key={toast.id} className="pointer-events-auto">
                             <ToastItem toast={toast} onRemove={removeToast} />
