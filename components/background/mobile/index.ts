@@ -173,6 +173,9 @@ const applyBrightnessMask = (canvas: HTMLCanvasElement) => {
   return canvas;
 };
 
+// 处理位图：应用模糊、变形和饱和度调整
+// 优化性能：降低初始和最终分辨率以减少计算量（约 36% 像素减少）
+// 视觉影响较小，因为最终会应用大量模糊效果
 const processBitmap = (source: HTMLCanvasElement) => {
   // 降低初始绘制分辨率以提升性能（从 150 降到 120）
   const smallWidth = 120;

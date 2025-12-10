@@ -221,6 +221,8 @@ export const parseAudioMetadata = (
 };
 
 // 封面颜色提取缓存 (用于优化性能，避免重复计算)
+// 使用 LRU (Least Recently Used) 策略，当缓存超过 50 个条目时自动移除最早的条目
+// 这可以显著提升切歌速度和重复访问相同封面时的性能
 const colorExtractionCache = new Map<string, string[]>();
 
 export const extractColors = async (imageSrc: string): Promise<string[]> => {
