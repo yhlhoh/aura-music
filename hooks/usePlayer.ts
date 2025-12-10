@@ -490,16 +490,17 @@ export const usePlayer = ({
     };
   }, [audioRef]);
 
+  // 提取封面颜色 - 支持网易云和 QQ 音乐
   useEffect(() => {
     if (
       !currentSong ||
-      !currentSong.isNetease ||
       !currentSong.coverUrl ||
       (currentSong.colors && currentSong.colors.length > 0)
     ) {
       return;
     }
 
+    // 只要有 coverUrl 就尝试提取颜色（不再限制只处理网易云）
     extractColors(currentSong.coverUrl)
       .then((colors) => {
         if (colors.length > 0) {
