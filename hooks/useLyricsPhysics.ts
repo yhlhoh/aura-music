@@ -112,7 +112,6 @@ export const useLyricsPhysics = ({
     // 跟踪 activeIndex 的变化，用于检测用户拖动进度条等大幅度跳转
     // 这样可以在大幅度跳转时快速定位，而在正常播放时平滑滚动
     const prevActiveIndexRef = useRef(-1);
-    const activeIndexChangeTimeRef = useRef(0); // 记录上次 activeIndex 变化的时间
 
     const RESUME_DELAY_MS = 3000;
     const FOCAL_POINT_RATIO = 0.65; // 65% from top (matched to LyricsView)
@@ -243,19 +242,14 @@ export const useLyricsPhysics = ({
         // Detect activeIndex jumps (seek operations)
         // 检测 activeIndex 的大幅跳跃（例如用户拖动进度条）
         // - 如果跳跃超过 5 行，则视为大幅跳转，需要快速定位
-        // - 记录变化时间，用于后续的稳定性判断
         const prevActiveIndex = prevActiveIndexRef.current;
         let activeIndexJump = 0;
         if (prevActiveIndex !== -1 && activeIndex !== -1) {
             activeIndexJump = Math.abs(activeIndex - prevActiveIndex);
-            if (activeIndexJump > 0) {
-                activeIndexChangeTimeRef.current = now;
-            }
         } else if (prevActiveIndex !== -1 && activeIndex === -1) {
             // Seeking to a position before any lyrics - treat as large jump
             // 跳转到歌词开始之前的位置
             activeIndexJump = prevActiveIndex + 1;
-            activeIndexChangeTimeRef.current = now;
         }
         prevActiveIndexRef.current = activeIndex;
 
