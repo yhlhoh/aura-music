@@ -105,7 +105,10 @@ export const useLyricsPhysics = ({
     const scrollLimitsRef = useRef({ min: 0, max: 0 });
 
     // Track activeIndex changes to detect seek jumps
+    // 跟踪 activeIndex 的变化，用于检测用户拖动进度条等大幅度跳转
+    // 这样可以在大幅度跳转时快速定位，而在正常播放时平滑滚动
     const prevActiveIndexRef = useRef(-1);
+    const activeIndexChangeTimeRef = useRef(0); // 记录上次 activeIndex 变化的时间
 
     const RESUME_DELAY_MS = 3000;
     const FOCAL_POINT_RATIO = 0.65; // 65% from top (matched to LyricsView)
@@ -167,6 +170,12 @@ export const useLyricsPhysics = ({
     }, [lyrics, linePositions, markScrollIdle]);
 
     // Calculate Active Index
+    // 计算当前高亮歌词行的索引
+    // 优化策略：
+    // 1. 只在 currentTime 或 lyrics 变化时重新计算
+    // 2. 添加小的时间容差 (TOLERANCE) 避免浮点误差导致的抖动
+    // 3. 对于重复时间戳，固定选择最后一个匹配行，保证一致性
+    // 4. 只有当计算出的索引与当前不同时才更新状态，减少不必要的重渲染
     useEffect(() => {
         if (!lyrics.length) {
             if (activeIndex !== -1) {
@@ -175,18 +184,28 @@ export const useLyricsPhysics = ({
             return;
         }
 
+        // 时间容差：避免浮点数精度问题导致在边界时间点反复跳跃
+        const TOLERANCE = 0.001; // 1ms 容差
         let nextIndex = -1;
+        
+        // 遍历所有歌词行，找到最后一个时间小于等于 currentTime 的行
+        // 这样处理重复时间戳时会固定选择最后一个，避免来回跳动
         for (let i = 0; i < lyrics.length; i++) {
             const line = lyrics[i];
             if (line.isMetadata) continue;
 
-            if (currentTime >= line.time) {
+            // 使用容差比较，避免浮点误差
+            if (currentTime + TOLERANCE >= line.time) {
                 nextIndex = i;
             } else {
                 break;
             }
         }
 
+        // 只有索引真正变化时才触发更新，这样可以：
+        // - 减少不必要的状态更新和重渲染
+        // - 确保滚动只在歌词行真正切换时触发
+        // - 避免在同一行内因时间微小变化导致的抖动
         if (nextIndex !== activeIndex) {
             setActiveIndex(nextIndex);
         }
@@ -218,17 +237,26 @@ export const useLyricsPhysics = ({
         const activeHeights = (currentLineHeights && currentLineHeights.length > 0) ? currentLineHeights : lineHeights;
 
         // Detect activeIndex jumps (seek operations)
+        // 检测 activeIndex 的大幅跳跃（例如用户拖动进度条）
+        // - 如果跳跃超过 5 行，则视为大幅跳转，需要快速定位
+        // - 记录变化时间，用于后续的稳定性判断
         const prevActiveIndex = prevActiveIndexRef.current;
         let activeIndexJump = 0;
         if (prevActiveIndex !== -1 && activeIndex !== -1) {
             activeIndexJump = Math.abs(activeIndex - prevActiveIndex);
+            if (activeIndexJump > 0) {
+                activeIndexChangeTimeRef.current = now;
+            }
         } else if (prevActiveIndex !== -1 && activeIndex === -1) {
             // Seeking to a position before any lyrics - treat as large jump
+            // 跳转到歌词开始之前的位置
             activeIndexJump = prevActiveIndex + 1;
+            activeIndexChangeTimeRef.current = now;
         }
         prevActiveIndexRef.current = activeIndex;
 
         // Determine if we need to snap due to a large seek jump
+        // 确定是否需要因大幅跳转而快速定位（跳过动画）
         const shouldSnap = activeIndexJump > 5;
 
         // 1. Handle Global Scroll Physics
