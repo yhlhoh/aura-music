@@ -220,7 +220,15 @@ export const parseAudioMetadata = (
   });
 };
 
+// 封面颜色提取缓存 (用于优化性能，避免重复计算)
+const colorExtractionCache = new Map<string, string[]>();
+
 export const extractColors = async (imageSrc: string): Promise<string[]> => {
+  // 检查缓存
+  if (colorExtractionCache.has(imageSrc)) {
+    return colorExtractionCache.get(imageSrc)!;
+  }
+
   if (typeof ColorThief === "undefined") {
     console.warn("ColorThief not loaded");
     return ["#4f46e5", "#db2777", "#1f2937"];
@@ -250,7 +258,16 @@ export const extractColors = async (imageSrc: string): Promise<string[]> => {
     });
 
     const topColors = candidates.slice(0, 7);
-    return topColors.map((c: number[]) => `rgb(${c[0]}, ${c[1]}, ${c[2]})`);
+    const colors = topColors.map((c: number[]) => `rgb(${c[0]}, ${c[1]}, ${c[2]})`);
+    
+    // 缓存结果（限制缓存大小，避免内存泄漏）
+    if (colorExtractionCache.size > 50) {
+      const firstKey = colorExtractionCache.keys().next().value;
+      colorExtractionCache.delete(firstKey);
+    }
+    colorExtractionCache.set(imageSrc, colors);
+    
+    return colors;
   } catch (err) {
     console.warn("Color extraction failed", err);
     return [];

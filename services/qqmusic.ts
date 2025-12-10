@@ -79,6 +79,7 @@ export interface QQTrackInfo {
   songurl?: string;
   duration?: number;
   payplay?: number;
+  albumImageUrl?: string; // QQ 音乐封面图 URL
 }
 
 const SEARCH_URL = 'https://yutangxiaowu.cn:3015/api/qmusic/search';
@@ -202,6 +203,12 @@ export async function searchQQMusic(
 function transformToTrackInfo(items: QQSongItem[]): QQTrackInfo[] {
   return items.map(item => {
     const artistNames = item.singer.map(s => s.name).join(' / ');
+    // 生成 QQ 音乐专辑封面 URL (使用 albummid)
+    // QQ 音乐封面 URL 格式: https://y.gtimg.cn/music/photo_new/T002R300x300M000{albummid}.jpg
+    const albumImageUrl = item.albummid 
+      ? `https://y.gtimg.cn/music/photo_new/T002R300x300M000${item.albummid}.jpg`
+      : undefined;
+    
     return {
       id: `qq-${item.songmid}`,
       title: item.songname,
@@ -211,6 +218,7 @@ function transformToTrackInfo(items: QQSongItem[]): QQTrackInfo[] {
       songurl: undefined, // API doesn't provide direct song URL in search results
       duration: item.interval,
       payplay: item.pay?.payplay,
+      albumImageUrl, // 添加封面图 URL
     };
   });
 }
