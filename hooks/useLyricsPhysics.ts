@@ -71,6 +71,12 @@ const USER_SCROLL_SPRING: SpringConfig = {
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
+// Lyrics synchronization thresholds
+// These values prevent "jittering" when lyrics have closely-spaced timestamps
+const LYRIC_FORWARD_THRESHOLD = 0.15;  // 150ms - prevents premature switching to next line
+const LYRIC_BACKWARD_THRESHOLD = 0.3;  // 300ms - more forgiving when seeking backward
+const LYRIC_PROXIMITY_THRESHOLD = 0.1; // 100ms - prevents switching when lines are very close
+
 const RUBBER_BAND_CONSTANT = 1.2;
 const MOMENTUM_DECEL = 8000; // px/s^2 friction applied to inertial scroll
 const MIN_SCROLL_VELOCITY = 8;
@@ -179,8 +185,6 @@ export const useLyricsPhysics = ({
 
         // Hysteresis threshold: only switch to next line if we're clearly past its start time
         // This prevents "jittering" between lines with very close timestamps
-        const FORWARD_THRESHOLD = 0.15; // 150ms tolerance going forward
-        const BACKWARD_THRESHOLD = 0.3; // 300ms tolerance going backward (more forgiving)
 
         let nextIndex = -1;
         for (let i = 0; i < lyrics.length; i++) {
@@ -192,14 +196,14 @@ export const useLyricsPhysics = ({
             // When moving backward or at current, use line.time directly
             if (i > activeIndex) {
                 // Moving forward: apply forward threshold
-                if (currentTime >= line.time + FORWARD_THRESHOLD) {
+                if (currentTime >= line.time + LYRIC_FORWARD_THRESHOLD) {
                     nextIndex = i;
                 } else {
                     break;
                 }
             } else {
                 // Moving backward or staying: use backward threshold
-                if (currentTime >= line.time - BACKWARD_THRESHOLD) {
+                if (currentTime >= line.time - LYRIC_BACKWARD_THRESHOLD) {
                     nextIndex = i;
                 } else {
                     break;
@@ -214,11 +218,11 @@ export const useLyricsPhysics = ({
             const nextLine = lyrics[nextIndex + 1];
             if (!nextLine.isMetadata) {
                 const timeUntilNext = nextLine.time - currentTime;
-                // If we're within 100ms of the next line, check if we should skip to it
-                if (timeUntilNext > 0 && timeUntilNext < 0.1) {
+                // If we're within the proximity threshold of the next line, check if we should skip to it
+                if (timeUntilNext > 0 && timeUntilNext < LYRIC_PROXIMITY_THRESHOLD) {
                     // Stay on current line to avoid rapid switching
                     // This handles cases where timestamps are very close together
-                    if (currentTime < currentLine.time + FORWARD_THRESHOLD) {
+                    if (currentTime < currentLine.time + LYRIC_FORWARD_THRESHOLD) {
                         nextIndex = activeIndex;
                     }
                 }
