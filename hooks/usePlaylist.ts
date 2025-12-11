@@ -101,6 +101,197 @@ export const usePlaylist = () => {
     setOriginalQueue((prev) => prev.filter((song) => !ids.includes(song.id)));
   }, []);
 
+  /**
+   * 去重清理函数：删除队列中的重复歌曲
+   * 基于平台+ID 判断，保留第一次出现的版本
+   * 用于对历史队列/歌单执行一次性清理
+   * @returns 被删除的歌曲数量
+   */
+  const deduplicateQueue = useCallback(() => {
+    const seen = new Set<string>();
+    const toKeep: Song[] = [];
+    const toRemove: string[] = [];
+
+    queue.forEach((song) => {
+      // 生成唯一标识键
+      let key: string;
+      if (song.isNetease && song.neteaseId) {
+        key = `netease:${song.neteaseId}`;
+      } else if (song.isQQMusic && song.qqMusicMid) {
+        key = `qq:${song.qqMusicMid}`;
+      } else {
+        key = song.id || `unknown:${song.title}`;
+      }
+
+      if (seen.has(key)) {
+        // 重复，标记删除
+        toRemove.push(song.id);
+      } else {
+        // 首次出现，保留
+        seen.add(key);
+        toKeep.push(song);
+      }
+    });
+
+    if (toRemove.length > 0) {
+      removeSongs(toRemove);
+    }
+
+    return toRemove.length;
+  }, [queue, removeSongs]);
+
+  /**
+   * 导出歌单为 JSON 文件
+   * 包含歌曲的所有必要信息，可用于备份和迁移
+   */
+  const exportPlaylist = useCallback(() => {
+    // 准备导出数据（排除 blob URL 和不必要的字段）
+    const exportData = queue.map(song => ({
+      id: song.id,
+      title: song.title,
+      artist: song.artist,
+      album: song.album,
+      coverUrl: song.coverUrl,
+      // 平台信息
+      isNetease: song.isNetease,
+      neteaseId: song.neteaseId,
+      isQQMusic: song.isQQMusic,
+      qqMusicMid: song.qqMusicMid,
+      // 注意：本地文件的 fileUrl (blob:) 不导出，导入时需要重新添加
+      fileUrl: song.fileUrl?.startsWith('blob:') ? undefined : song.fileUrl,
+    }));
+
+    const jsonString = JSON.stringify(exportData, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `aura-playlist-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, [queue]);
+
+  /**
+   * 从 JSON 文件导入歌单
+   * @param file JSON 文件
+   * @returns 导入结果统计
+   */
+  const importPlaylist = useCallback(async (file: File): Promise<{
+    success: number;
+    skipped: number;
+    failed: number;
+    errors: string[];
+  }> => {
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+
+      if (!Array.isArray(data)) {
+        return {
+          success: 0,
+          skipped: 0,
+          failed: 1,
+          errors: ['导入失败：文件格式错误，应为歌曲数组'],
+        };
+      }
+
+      let successCount = 0;
+      let skippedCount = 0;
+      let failedCount = 0;
+      const errors: string[] = [];
+
+      // 构建现有歌曲的唯一键集合（用于去重）
+      const existingKeys = new Set<string>();
+      queue.forEach(song => {
+        if (song.isNetease && song.neteaseId) {
+          existingKeys.add(`netease:${song.neteaseId}`);
+        } else if (song.isQQMusic && song.qqMusicMid) {
+          existingKeys.add(`qq:${song.qqMusicMid}`);
+        } else {
+          existingKeys.add(song.id || `unknown:${song.title}`);
+        }
+      });
+
+      const songsToAdd: Song[] = [];
+
+      for (let i = 0; i < data.length; i++) {
+        const item = data[i];
+
+        // 校验必要字段
+        if (!item.title || !item.artist) {
+          failedCount++;
+          errors.push(`第 ${i + 1} 首歌曲缺少必要字段（标题或艺术家）`);
+          continue;
+        }
+
+        // 生成唯一键
+        let key: string;
+        if (item.isNetease && item.neteaseId) {
+          key = `netease:${item.neteaseId}`;
+        } else if (item.isQQMusic && item.qqMusicMid) {
+          key = `qq:${item.qqMusicMid}`;
+        } else if (item.id) {
+          key = item.id;
+        } else {
+          key = `unknown:${item.title}`;
+        }
+
+        // 检查是否重复
+        if (existingKeys.has(key)) {
+          skippedCount++;
+          continue;
+        }
+
+        // 构建 Song 对象
+        const song: Song = {
+          id: item.id || `imported-${Date.now()}-${i}`,
+          title: item.title,
+          artist: item.artist,
+          album: item.album,
+          coverUrl: item.coverUrl,
+          fileUrl: item.fileUrl || '',
+          isNetease: item.isNetease,
+          neteaseId: item.neteaseId,
+          isQQMusic: item.isQQMusic,
+          qqMusicMid: item.qqMusicMid,
+          lyrics: [],
+          needsLyricsMatch: true,
+        };
+
+        // 对于云音乐平台，重新生成 fileUrl
+        if (song.isNetease && song.neteaseId) {
+          song.fileUrl = getNeteaseAudioUrl(song.id);
+        }
+
+        songsToAdd.push(song);
+        existingKeys.add(key);
+        successCount++;
+      }
+
+      // 批量添加歌曲
+      if (songsToAdd.length > 0) {
+        appendSongs(songsToAdd);
+      }
+
+      return {
+        success: successCount,
+        skipped: skippedCount,
+        failed: failedCount,
+        errors,
+      };
+    } catch (error) {
+      return {
+        success: 0,
+        skipped: 0,
+        failed: 1,
+        errors: [`导入失败：${error instanceof Error ? error.message : '未知错误'}`],
+      };
+    }
+  }, [queue, appendSongs]);
+
   const addLocalFiles = useCallback(
     async (files: FileList | File[]) => {
       const fileList =
@@ -306,5 +497,8 @@ export const usePlaylist = () => {
     importFromUrl,
     setQueue,
     setOriginalQueue,
+    deduplicateQueue,
+    exportPlaylist,
+    importPlaylist,
   };
 };

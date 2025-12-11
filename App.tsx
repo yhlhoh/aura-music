@@ -176,41 +176,62 @@ const App: React.FC = () => {
   };
 
   const handleImportAndPlay = (song: Song) => {
-    // Check if song already exists in queue (by neteaseId for cloud songs, or by id)
+    // 基于平台+ID 检查歌曲是否已在队列中
+    // 使用统一的唯一标识逻辑，避免歌名重复导致的混淆
     const existingIndex = playlist.queue.findIndex((s) => {
-      if (song.isNetease && s.isNetease) {
+      // 网易云：使用 neteaseId 判断
+      if (song.isNetease && s.isNetease && song.neteaseId && s.neteaseId) {
         return s.neteaseId === song.neteaseId;
       }
+      // QQ 音乐：使用 qqMusicMid 判断
+      if (song.isQQMusic && s.isQQMusic && song.qqMusicMid && s.qqMusicMid) {
+        return s.qqMusicMid === song.qqMusicMid;
+      }
+      // 本地文件或其他：使用 id 判断
       return s.id === song.id;
     });
 
     if (existingIndex !== -1) {
-      // Song already in queue, just play it
+      // 歌曲已在队列中，直接播放
       playIndex(existingIndex);
     } else {
-      // Add and play atomically - no race conditions!
+      // 添加并播放 - 无竞态条件！
       addSongAndPlay(song);
     }
   };
 
   const handleAddToQueue = (song: Song) => {
-    // 检查歌曲是否已在队列中（避免重复添加）
-    const existingIndex = playlist.queue.findIndex((s) => {
-      if (song.isNetease && s.isNetease) {
-        return s.neteaseId === song.neteaseId;
+    // 基于平台+ID 检查歌曲是否已在队列中（避免重复添加）
+    // 实现"禁止歌单重复"功能：删除旧的相同歌曲，仅保留新添加的位置
+    const existingIndices: number[] = [];
+    playlist.queue.forEach((s, index) => {
+      // 网易云：使用 neteaseId 判断
+      if (song.isNetease && s.isNetease && song.neteaseId && s.neteaseId) {
+        if (s.neteaseId === song.neteaseId) {
+          existingIndices.push(index);
+        }
       }
-      if (song.isQQMusic && s.isQQMusic) {
-        return s.qqMusicMid === song.qqMusicMid;
+      // QQ 音乐：使用 qqMusicMid 判断
+      else if (song.isQQMusic && s.isQQMusic && song.qqMusicMid && s.qqMusicMid) {
+        if (s.qqMusicMid === song.qqMusicMid) {
+          existingIndices.push(index);
+        }
       }
-      return s.id === song.id;
+      // 本地文件或其他：使用 id 判断
+      else if (s.id === song.id) {
+        existingIndices.push(index);
+      }
     });
 
-    if (existingIndex !== -1) {
-      // 歌曲已存在，不添加，不弹出 toast
-      return;
+    // 如果歌曲已存在，删除所有旧的版本，仅保留这次新添加的
+    // 策略：保留"最新一次添加"的位置，将旧的相同歌曲移除
+    if (existingIndices.length > 0) {
+      // 删除所有旧的重复版本
+      const idsToRemove = existingIndices.map(i => playlist.queue[i].id);
+      playlist.removeSongs(idsToRemove);
     }
 
-    // 添加歌曲到队列
+    // 添加歌曲到队列末尾（这是新的唯一版本）
     playlist.setQueue((prev) => [...prev, song]);
     playlist.setOriginalQueue((prev) => [...prev, song]);
     
@@ -304,6 +325,7 @@ const App: React.FC = () => {
           setShowVolumePopup={setShowVolumePopup}
           showSettingsPopup={showSettingsPopup}
           setShowSettingsPopup={setShowSettingsPopup}
+          currentSong={currentSong}
         />
 
         {/* Floating Playlist Panel */}
@@ -316,6 +338,8 @@ const App: React.FC = () => {
           onImport={handleImportUrl}
           onRemove={playlist.removeSongs}
           accentColor={accentColor}
+          onExportPlaylist={playlist.exportPlaylist}
+          onImportPlaylist={playlist.importPlaylist}
         />
       </div>
     </div>

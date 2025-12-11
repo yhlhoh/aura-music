@@ -2,11 +2,37 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useTransition, animated } from '@react-spring/web';
 import { Song } from '../types';
-import { CheckIcon, PlusIcon, QueueIcon, TrashIcon, SelectAllIcon } from './Icons';
+import { CheckIcon, PlusIcon, QueueIcon, TrashIcon, SelectAllIcon, DownloadIcon } from './Icons';
 
 import { useKeyboardScope } from '../hooks/useKeyboardScope';
 import ImportMusicDialog from './ImportMusicDialog';
 import SmartImage from './SmartImage';
+import { buildQQMusicUrl } from '../services/qqmusic';
+
+/**
+ * 获取歌曲的可访问 URL
+ * 用于下载按钮：优先返回音频直链，否则返回网页播放页链接
+ * @param song 歌曲对象
+ * @returns 可访问的 URL，用于在新标签页打开
+ */
+function getSongAccessUrl(song: Song): string | undefined {
+  // QQ 音乐：返回网页播放页链接
+  if (song.isQQMusic && song.qqMusicMid) {
+    return buildQQMusicUrl(song.qqMusicMid);
+  }
+  
+  // 网易云音乐：返回网页播放页链接
+  if (song.isNetease && song.neteaseId) {
+    return `https://music.163.com/#/song?id=${song.neteaseId}`;
+  }
+  
+  // 本地文件：如果有非 blob URL，返回它
+  if (song.fileUrl && !song.fileUrl.startsWith('blob:')) {
+    return song.fileUrl;
+  }
+  
+  return undefined;
+}
 
 const IOS_SCROLLBAR_STYLES = `
   .playlist-scrollbar {
@@ -43,6 +69,13 @@ interface PlaylistPanelProps {
     onImport: (url: string) => Promise<boolean>;
     onRemove: (ids: string[]) => void;
     accentColor: string;
+    onExportPlaylist: () => void;
+    onImportPlaylist: (file: File) => Promise<{
+        success: number;
+        skipped: number;
+        failed: number;
+        errors: string[];
+    }>;
 }
 
 const PlaylistPanel: React.FC<PlaylistPanelProps> = ({
@@ -53,7 +86,9 @@ const PlaylistPanel: React.FC<PlaylistPanelProps> = ({
     onPlay,
     onImport,
     onRemove,
-    accentColor
+    accentColor,
+    onExportPlaylist,
+    onImportPlaylist,
 }) => {
     const [isAdding, setIsAdding] = useState(false);
     const [visible, setVisible] = useState(false);
@@ -219,54 +254,52 @@ const PlaylistPanel: React.FC<PlaylistPanelProps> = ({
                         </div>
 
                         <div className="flex items-center gap-2">
-                            {/* 导入导出歌单按钮 */}
+                            {/* 导入歌单按钮 */}
                             <button
                                 onClick={() => {
-                                    // 创建文件选择框
                                     const input = document.createElement('input');
                                     input.type = 'file';
                                     input.accept = '.json,application/json';
                                     input.onchange = async (e: any) => {
-                                        const file = e.target.files[0];
+                                        const file = e.target.files?.[0];
                                         if (!file) return;
+                                        
                                         try {
-                                            const text = await file.text();
-                                            const list = JSON.parse(text);
-                                            if (Array.isArray(list)) {
-                                                // 触发批量导入，假设 onImport 支持批量（如不支持可单独处理）
-                                                // 这里只弹窗提示，实际导入逻辑需主程序支持
-                                                alert('已读取 ' + list.length + ' 首歌曲，需开发批量导入逻辑');
-                                            } else {
-                                                alert('文件格式不正确');
+                                            const result = await onImportPlaylist(file);
+                                            
+                                            // 显示导入结果
+                                            const messages: string[] = [];
+                                            if (result.success > 0) {
+                                                messages.push(`成功导入 ${result.success} 首`);
                                             }
-                                        } catch {
-                                            alert('文件解析失败');
+                                            if (result.skipped > 0) {
+                                                messages.push(`跳过重复 ${result.skipped} 首`);
+                                            }
+                                            if (result.failed > 0) {
+                                                messages.push(`失败 ${result.failed} 首`);
+                                            }
+                                            
+                                            if (result.errors.length > 0) {
+                                                alert(messages.join('，') + '\n\n错误详情：\n' + result.errors.join('\n'));
+                                            } else {
+                                                alert(messages.join('，'));
+                                            }
+                                        } catch (error) {
+                                            alert('导入失败：' + (error instanceof Error ? error.message : '未知错误'));
                                         }
                                     };
                                     input.click();
                                 }}
                                 className="w-8 h-8 rounded-full flex items-center justify-center transition-all text-white/50 hover:text-white hover:bg-white/10"
-                                title="导入歌单"
+                                title="导入歌单 (JSON)"
                             >
                                 <span className="text-xs">导入</span>
                             </button>
+                            {/* 导出歌单按钮 */}
                             <button
-                                onClick={() => {
-                                    const data = JSON.stringify(queue, null, 2);
-                                    const blob = new Blob([data], { type: 'application/json' });
-                                    const url = URL.createObjectURL(blob);
-                                    const a = document.createElement('a');
-                                    a.href = url;
-                                    a.download = `playlist-${new Date().toISOString().slice(0,10)}.json`;
-                                    document.body.appendChild(a);
-                                    a.click();
-                                    setTimeout(() => {
-                                        document.body.removeChild(a);
-                                        URL.revokeObjectURL(url);
-                                    }, 100);
-                                }}
+                                onClick={onExportPlaylist}
                                 className="w-8 h-8 rounded-full flex items-center justify-center transition-all text-white/50 hover:text-white hover:bg-white/10"
-                                title="导出歌单"
+                                title="导出歌单 (JSON)"
                             >
                                 <span className="text-xs">导出</span>
                             </button>
@@ -405,6 +438,26 @@ const PlaylistPanel: React.FC<PlaylistPanelProps> = ({
                                                     {song.artist}
                                                 </div>
                                             </div>
+                                            
+                                            {/* 下载按钮 - 仅在非编辑模式显示 */}
+                                            {!isEditing && (() => {
+                                                const downloadUrl = getSongAccessUrl(song);
+                                                if (!downloadUrl) return null;
+                                                
+                                                return (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            window.open(downloadUrl, '_blank', 'noopener,noreferrer');
+                                                        }}
+                                                        className="w-8 h-8 rounded-full flex items-center justify-center transition-all text-white/40 hover:text-white hover:bg-white/10 flex-shrink-0"
+                                                        title="在新标签页打开歌曲链接"
+                                                        aria-label="下载/打开链接"
+                                                    >
+                                                        <DownloadIcon className="w-4 h-4" />
+                                                    </button>
+                                                );
+                                            })()}
                                         </div>
                                     );
                                 })}

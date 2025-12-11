@@ -58,6 +58,20 @@ const AboutDialog: React.FC<AboutDialogProps> = ({ isOpen, onClose }) => {
                         v1.4.0 • Web
                     </div>
 
+                    {/* 构建信息 */}
+                    <div className="w-full mb-6 px-3 py-2 rounded-xl bg-white/5 border border-white/5">
+                        <div className="text-[11px] text-white/50 space-y-1 font-mono">
+                            <div className="flex justify-between items-center">
+                                <span className="text-white/40">Build:</span>
+                                <span className="text-white/60">{typeof __BUILD_COMMIT__ !== 'undefined' ? __BUILD_COMMIT__ : 'dev'}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-white/40">Date:</span>
+                                <span className="text-white/60">{typeof __BUILD_DATE__ !== 'undefined' ? __BUILD_DATE__ : 'unknown'}</span>
+                            </div>
+                        </div>
+                    </div>
+
                     {/* Description */}
                     <p className="text-white/70 text-[15px] leading-relaxed mb-8 font-medium">
                         An experimental, pure web music player crafted with
