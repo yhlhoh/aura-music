@@ -1,5 +1,5 @@
 import { useCallback, useState, useEffect } from "react";
-import { Song } from "../types";
+import { Song, getSongUniqueKey } from "../types";
 import {
   extractColors,
   parseAudioMetadata,
@@ -113,15 +113,8 @@ export const usePlaylist = () => {
     const toRemove: string[] = [];
 
     queue.forEach((song) => {
-      // 生成唯一标识键
-      let key: string;
-      if (song.isNetease && song.neteaseId) {
-        key = `netease:${song.neteaseId}`;
-      } else if (song.isQQMusic && song.qqMusicMid) {
-        key = `qq:${song.qqMusicMid}`;
-      } else {
-        key = song.id || `unknown:${song.title}`;
-      }
+      // 使用统一的唯一标识生成函数
+      const key = getSongUniqueKey(song);
 
       if (seen.has(key)) {
         // 重复，标记删除
@@ -206,13 +199,7 @@ export const usePlaylist = () => {
       // 构建现有歌曲的唯一键集合（用于去重）
       const existingKeys = new Set<string>();
       queue.forEach(song => {
-        if (song.isNetease && song.neteaseId) {
-          existingKeys.add(`netease:${song.neteaseId}`);
-        } else if (song.isQQMusic && song.qqMusicMid) {
-          existingKeys.add(`qq:${song.qqMusicMid}`);
-        } else {
-          existingKeys.add(song.id || `unknown:${song.title}`);
-        }
+        existingKeys.add(getSongUniqueKey(song));
       });
 
       const songsToAdd: Song[] = [];
@@ -227,17 +214,19 @@ export const usePlaylist = () => {
           continue;
         }
 
-        // 生成唯一键
-        let key: string;
-        if (item.isNetease && item.neteaseId) {
-          key = `netease:${item.neteaseId}`;
-        } else if (item.isQQMusic && item.qqMusicMid) {
-          key = `qq:${item.qqMusicMid}`;
-        } else if (item.id) {
-          key = item.id;
-        } else {
-          key = `unknown:${item.title}`;
-        }
+        // 构建临时 Song 对象用于生成唯一键
+        const tempSong: Song = {
+          id: item.id || '',
+          title: item.title,
+          artist: item.artist,
+          fileUrl: '',
+          isNetease: item.isNetease,
+          neteaseId: item.neteaseId,
+          isQQMusic: item.isQQMusic,
+          qqMusicMid: item.qqMusicMid,
+        };
+        
+        const key = getSongUniqueKey(tempSong);
 
         // 检查是否重复
         if (existingKeys.has(key)) {

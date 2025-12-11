@@ -5,12 +5,12 @@ import { execSync } from 'child_process';
 
 // 获取构建信息
 function getBuildInfo() {
+  const currentDate = new Date().toISOString().slice(0, 16).replace('T', ' ');
   try {
     const commit = execSync('git rev-parse --short HEAD').toString().trim();
-    const date = new Date().toISOString().slice(0, 16).replace('T', ' ');
-    return { commit, date };
+    return { commit, date: currentDate };
   } catch {
-    return { commit: 'unknown', date: new Date().toISOString().slice(0, 16).replace('T', ' ') };
+    return { commit: 'unknown', date: currentDate };
   }
 }
 

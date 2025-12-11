@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useToast } from "./hooks/useToast";
-import { PlayState, Song } from "./types";
+import { PlayState, Song, isSameSong } from "./types";
 import FluidBackground from "./components/FluidBackground";
 import Controls from "./components/Controls";
 import LyricsView from "./components/LyricsView";
@@ -205,20 +205,7 @@ const App: React.FC = () => {
     // 实现"禁止歌单重复"功能：删除旧的相同歌曲，仅保留新添加的位置
     const existingIndices: number[] = [];
     playlist.queue.forEach((s, index) => {
-      // 网易云：使用 neteaseId 判断
-      if (song.isNetease && s.isNetease && song.neteaseId && s.neteaseId) {
-        if (s.neteaseId === song.neteaseId) {
-          existingIndices.push(index);
-        }
-      }
-      // QQ 音乐：使用 qqMusicMid 判断
-      else if (song.isQQMusic && s.isQQMusic && song.qqMusicMid && s.qqMusicMid) {
-        if (s.qqMusicMid === song.qqMusicMid) {
-          existingIndices.push(index);
-        }
-      }
-      // 本地文件或其他：使用 id 判断
-      else if (s.id === song.id) {
+      if (isSameSong(song, s)) {
         existingIndices.push(index);
       }
     });
