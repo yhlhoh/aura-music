@@ -3,6 +3,7 @@ import { useSpring, animated, useTransition, to } from "@react-spring/web";
 import { formatTime } from "../services/utils";
 import Visualizer from "./visualizer/Visualizer";
 import SmartImage from "./SmartImage";
+import { Song } from "../types";
 import {
   LoopIcon,
   LoopOneIcon,
@@ -50,6 +51,7 @@ interface ControlsProps {
   setShowSettingsPopup: (show: boolean) => void;
   isBuffering: boolean;
   bufferProgress: number;
+  currentSong?: Song | null; // 添加当前歌曲信息，用于平台判断
 }
 
 const Controls: React.FC<ControlsProps> = ({
@@ -80,6 +82,7 @@ const Controls: React.FC<ControlsProps> = ({
   setShowSettingsPopup,
   isBuffering,
   bufferProgress,
+  currentSong,
 }) => {
   const volumeContainerRef = useRef<HTMLDivElement>(null);
   const settingsContainerRef = useRef<HTMLDivElement>(null);
@@ -344,7 +347,14 @@ const Controls: React.FC<ControlsProps> = ({
 
       {/* Spectrum Visualizer */}
       <div className="w-full flex justify-center h-8 mb-2">
-        <Visualizer audioRef={audioRef} isPlaying={isPlaying} />
+        {/* QQ 音乐平台：暂不支持声波动画，显示占位提示 */}
+        {currentSong?.isQQMusic ? (
+          <div className="flex items-center justify-center h-full text-white/30 text-xs">
+            <span>此平台暂不支持声波动画</span>
+          </div>
+        ) : (
+          <Visualizer audioRef={audioRef} isPlaying={isPlaying} />
+        )}
       </div>
 
       {/* Progress Bar */}

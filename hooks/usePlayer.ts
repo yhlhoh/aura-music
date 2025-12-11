@@ -14,6 +14,11 @@ import {
   searchAndMatchLyrics,
 } from "../services/lyricsService";
 import { audioResourceCache } from "../services/cache";
+import { parseQQSongBy317ak, toHttps } from "../services/qqmusic";
+
+// QQ 音乐 URL 刷新所需的常量
+const CKEY = 'RK7TO6VHAB0WSW7VHXKH';
+const DEFAULT_BR = 3;
 
 type MatchStatus = "idle" | "matching" | "success" | "failed";
 
@@ -614,77 +619,113 @@ export const usePlayer = ({
       };
     }
 
-    const fileUrl = currentSong.fileUrl;
+    // QQ 音乐 URL 刷新逻辑：每次播放时重新获取 URL（因为 QQ 音乐的 URL 会过期）
+    const refreshQQMusicUrl = async (): Promise<string | null> => {
+      if (!currentSong.isQQMusic || !currentSong.qqMusicMid) {
+        return null;
+      }
 
-    if (fileUrl.startsWith("blob:") || fileUrl.startsWith("data:")) {
-      releaseObjectUrl();
-      setResolvedAudioSrc(fileUrl);
-      setIsBuffering(false);
-      setBufferProgress(1);
-      return () => {
-        canceled = true;
-      };
-    }
-
-    const cachedBlob = audioResourceCache.get(fileUrl);
-    if (cachedBlob) {
-      releaseObjectUrl();
-      currentObjectUrl = URL.createObjectURL(cachedBlob);
-      setResolvedAudioSrc(currentObjectUrl);
-      setIsBuffering(false);
-      setBufferProgress(1);
-      return () => {
-        canceled = true;
-        releaseObjectUrl();
-      };
-    }
-
-    const MediaSourceCtor =
-      typeof window !== "undefined" ? window.MediaSource : undefined;
-    const supportsMediaSource =
-      typeof MediaSourceCtor !== "undefined" &&
-      typeof MediaSourceCtor.isTypeSupported === "function";
-
-    releaseObjectUrl();
-    setIsBuffering(true);
-    setBufferProgress(0);
-
-    if (typeof fetch !== "function") {
-      resetBuffering();
-      return () => {
-        canceled = true;
-      };
-    }
-
-    if (supportsMediaSource && MediaSourceCtor) {
-      mediaSource = new MediaSourceCtor();
-      currentObjectUrl = URL.createObjectURL(mediaSource);
-      setResolvedAudioSrc(currentObjectUrl);
-    } else {
-      setResolvedAudioSrc(null);
-    }
-
-    const waitForSourceOpen = () =>
-      new Promise<void>((resolve) => {
-        if (!mediaSource) {
-          resolve();
-          return;
-        }
-        if (mediaSource.readyState === "open") {
-          resolve();
-          return;
-        }
-        const handleOpen = () => {
-          mediaSource?.removeEventListener("sourceopen", handleOpen);
-          resolve();
-        };
-        mediaSource.addEventListener("sourceopen", handleOpen);
-      });
-
-    const streamViaMediaSource = async (signal: AbortSignal): Promise<boolean> => {
-      if (!mediaSource) return false;
       try {
-        const response = await fetch(fileUrl, { signal });
+        console.log(`[QQ 音乐] 刷新播放 URL: ${currentSong.title}`);
+        const parseResult = await parseQQSongBy317ak(currentSong.qqMusicMid, CKEY, DEFAULT_BR);
+        const newUrl = parseResult.data?.music || parseResult.music || parseResult.url || parseResult.data?.url;
+        
+        if (newUrl) {
+          const httpsUrl = toHttps(newUrl);
+          console.log(`[QQ 音乐] URL 刷新成功`);
+          
+          // 更新歌曲的 fileUrl（持久化到队列中）
+          updateSongInQueue(currentSong.id, { fileUrl: httpsUrl });
+          
+          return httpsUrl;
+        }
+      } catch (error) {
+        console.error('[QQ 音乐] URL 刷新失败:', error);
+      }
+      
+      return null;
+    };
+
+    // 初始化加载逻辑
+    const initializeAudio = async () => {
+      // 对于 QQ 音乐，先尝试刷新 URL
+      let fileUrl = currentSong.fileUrl;
+      
+      if (currentSong.isQQMusic && currentSong.qqMusicMid) {
+        const refreshedUrl = await refreshQQMusicUrl();
+        if (refreshedUrl && !canceled) {
+          fileUrl = refreshedUrl;
+          // 清除旧 URL 的缓存
+          if (currentSong.fileUrl !== refreshedUrl) {
+            audioResourceCache.delete(currentSong.fileUrl);
+          }
+        }
+      }
+
+      if (canceled) return;
+
+      if (fileUrl.startsWith("blob:") || fileUrl.startsWith("data:")) {
+        releaseObjectUrl();
+        setResolvedAudioSrc(fileUrl);
+        setIsBuffering(false);
+        setBufferProgress(1);
+        return;
+      }
+
+      const cachedBlob = audioResourceCache.get(fileUrl);
+      if (cachedBlob) {
+        releaseObjectUrl();
+        currentObjectUrl = URL.createObjectURL(cachedBlob);
+        setResolvedAudioSrc(currentObjectUrl);
+        setIsBuffering(false);
+        setBufferProgress(1);
+        return;
+      }
+
+      const MediaSourceCtor =
+        typeof window !== "undefined" ? window.MediaSource : undefined;
+      const supportsMediaSource =
+        typeof MediaSourceCtor !== "undefined" &&
+        typeof MediaSourceCtor.isTypeSupported === "function";
+
+      releaseObjectUrl();
+      setIsBuffering(true);
+      setBufferProgress(0);
+
+      if (typeof fetch !== "function") {
+        resetBuffering();
+        return;
+      }
+
+      if (supportsMediaSource && MediaSourceCtor) {
+        mediaSource = new MediaSourceCtor();
+        currentObjectUrl = URL.createObjectURL(mediaSource);
+        setResolvedAudioSrc(currentObjectUrl);
+      } else {
+        setResolvedAudioSrc(null);
+      }
+
+      const waitForSourceOpen = () =>
+        new Promise<void>((resolve) => {
+          if (!mediaSource) {
+            resolve();
+            return;
+          }
+          if (mediaSource.readyState === "open") {
+            resolve();
+            return;
+          }
+          const handleOpen = () => {
+            mediaSource?.removeEventListener("sourceopen", handleOpen);
+            resolve();
+          };
+          mediaSource.addEventListener("sourceopen", handleOpen);
+        });
+
+      const streamViaMediaSource = async (signal: AbortSignal): Promise<boolean> => {
+        if (!mediaSource) return false;
+        try {
+          const response = await fetch(fileUrl, { signal });
         if (!response.ok) {
           throw new Error("Failed to load audio: " + response.status);
         }
@@ -807,85 +848,89 @@ export const usePlayer = ({
           setBufferProgress(0);
         }
         return false;
-      }
-    };
-
-    const cacheWithoutStreaming = async (signal: AbortSignal) => {
-      try {
-        const response = await fetch(fileUrl, { signal });
-        if (!response.ok) {
-          throw new Error("Failed to load audio: " + response.status);
         }
+      };
 
-        const totalBytes = Number(response.headers.get("content-length")) || 0;
+      const cacheWithoutStreaming = async (signal: AbortSignal) => {
+        try {
+            const response = await fetch(fileUrl, { signal });
+          if (!response.ok) {
+            throw new Error("Failed to load audio: " + response.status);
+          }
 
-        if (!response.body) {
-          const fallbackBlob = await response.blob();
-          if (canceled) return;
-          audioResourceCache.set(fileUrl, fallbackBlob);
-          setBufferProgress(1);
-          return;
-        }
+          const totalBytes = Number(response.headers.get("content-length")) || 0;
 
-        const reader = response.body.getReader();
-        const chunks: BlobPart[] = [];
-        let loaded = 0;
+          if (!response.body) {
+            const fallbackBlob = await response.blob();
+            if (canceled) return;
+            audioResourceCache.set(fileUrl, fallbackBlob);
+            setBufferProgress(1);
+            return;
+          }
 
-        while (!canceled) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          if (value) {
-            const copy = value.slice();
-            chunks.push(copy);
-            loaded += copy.byteLength;
-            if (totalBytes > 0) {
-              setBufferProgress(Math.min(loaded / totalBytes, 0.99));
-            } else {
-              setBufferProgress((prev) => {
-                const increment = copy.byteLength / (5 * 1024 * 1024);
-                return Math.min(0.95, prev + increment);
-              });
+          const reader = response.body.getReader();
+          const chunks: BlobPart[] = [];
+          let loaded = 0;
+
+          while (!canceled) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (value) {
+              const copy = value.slice();
+              chunks.push(copy);
+              loaded += copy.byteLength;
+              if (totalBytes > 0) {
+                setBufferProgress(Math.min(loaded / totalBytes, 0.99));
+              } else {
+                setBufferProgress((prev) => {
+                  const increment = copy.byteLength / (5 * 1024 * 1024);
+                  return Math.min(0.95, prev + increment);
+                });
+              }
             }
           }
+
+          if (canceled) return;
+
+          const blob = new Blob(chunks, {
+            type: response.headers.get("content-type") || "audio/mpeg",
+          });
+          audioResourceCache.set(fileUrl, blob);
+          setBufferProgress(1);
+        } catch (error) {
+          if (!canceled) {
+            console.warn("Audio caching failed:", error);
+            setBufferProgress(0);
+          }
         }
+      };
 
-        if (canceled) return;
-
-        const blob = new Blob(chunks, {
-          type: response.headers.get("content-type") || "audio/mpeg",
-        });
-        audioResourceCache.set(fileUrl, blob);
-        setBufferProgress(1);
-      } catch (error) {
-        if (!canceled) {
-          console.warn("Audio caching failed:", error);
-          setBufferProgress(0);
-        }
-      }
-    };
-
-    const start = async () => {
-      try {
-        if (supportsMediaSource) {
-          controller = new AbortController();
-          const streamed = await streamViaMediaSource(controller.signal);
-          if (!streamed && !canceled) {
-            fallbackToNativeSrc();
+      const start = async () => {
+        try {
+          if (supportsMediaSource) {
+            controller = new AbortController();
+            const streamed = await streamViaMediaSource(controller.signal);
+            if (!streamed && !canceled) {
+              fallbackToNativeSrc();
+              controller = new AbortController();
+              await cacheWithoutStreaming(controller.signal);
+            }
+          } else {
             controller = new AbortController();
             await cacheWithoutStreaming(controller.signal);
           }
-        } else {
-          controller = new AbortController();
-          await cacheWithoutStreaming(controller.signal);
+        } finally {
+          if (!canceled) {
+            setIsBuffering(false);
+          }
         }
-      } finally {
-        if (!canceled) {
-          setIsBuffering(false);
-        }
-      }
+      };
+
+      start();
     };
 
-    start();
+    // 调用初始化函数
+    initializeAudio();
 
     return () => {
       canceled = true;
