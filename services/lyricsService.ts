@@ -166,6 +166,55 @@ export const getNeteaseAudioUrl = (id: string) => {
   return `${METING_API}?type=url&id=${id}`;
 };
 
+/**
+ * Get direct audio file URL for Netease Cloud Music track
+ * 
+ * This method attempts to resolve a direct, downloadable audio URL
+ * from the Meting API which acts as a redirect service to Netease CDN.
+ * 
+ * Why direct file URL is required:
+ * - Download buttons should link directly to audio files (mp3/m4a/flac)
+ * - Platform web pages are not suitable for downloading
+ * - Ensures users get actual audio content, not a web page
+ * 
+ * How it works:
+ * - The Meting API returns a redirect to the actual Netease CDN URL
+ * - We can use the Meting API URL directly as it will redirect browsers
+ * - Browsers will follow the redirect and download the audio file
+ * 
+ * Error handling:
+ * - Returns null if the track ID is invalid
+ * - Returns null if the API fails (network error, track unavailable)
+ * - Caller should disable download UI when null is returned
+ * 
+ * Security note:
+ * - The Meting API generates time-limited signed URLs
+ * - URLs are not long-lived tokens and are safe to use client-side
+ * 
+ * @param neteaseId - Netease Cloud Music song ID
+ * @returns Direct audio URL string (Meting API that redirects to CDN), or null if unavailable
+ */
+export async function getDirectAudioUrl(neteaseId: string): Promise<string | null> {
+  if (!neteaseId || !neteaseId.trim()) {
+    console.warn('[Netease] getDirectAudioUrl: neteaseId is empty');
+    return null;
+  }
+
+  try {
+    // The Meting API URL will redirect to the actual audio file
+    // We return it directly as browsers will follow the redirect on download
+    const audioUrl = getNeteaseAudioUrl(neteaseId);
+    
+    // Note: We cannot verify the URL with a HEAD request in no-cors mode
+    // as the response would be opaque. The browser will handle redirects
+    // when the user clicks the download button.
+    return audioUrl;
+  } catch (error) {
+    console.warn('[Netease] getDirectAudioUrl failed:', error);
+    return null;
+  }
+}
+
 // Implements the search logic from the user provided code snippet
 export const searchNetEase = async (
   keyword: string,

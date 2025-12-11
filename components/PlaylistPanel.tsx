@@ -7,32 +7,107 @@ import { CheckIcon, PlusIcon, QueueIcon, TrashIcon, SelectAllIcon, DownloadIcon 
 import { useKeyboardScope } from '../hooks/useKeyboardScope';
 import ImportMusicDialog from './ImportMusicDialog';
 import SmartImage from './SmartImage';
-import { buildQQMusicUrl } from '../services/qqmusic';
+import { getDirectAudioUrl, canAttemptDirectDownload } from '../services/audioAdapter';
 
 /**
- * 获取歌曲的可访问 URL
- * 用于下载按钮：优先返回音频直链，否则返回网页播放页链接
- * @param song 歌曲对象
- * @returns 可访问的 URL，用于在新标签页打开
+ * Download Button Component
+ * 
+ * Handles downloading/opening direct audio file URLs for songs.
+ * This component resolves the direct audio URL and opens it in a new tab.
+ * 
+ * Behavior:
+ * - QQ Music: Fetches time-limited CDN URL via 317ak API
+ * - Netease: Uses Meting API redirect to Netease CDN
+ * - Local files: Uses the existing file URL
+ * - Platform pages: NOT supported - button is disabled
+ * 
+ * Why direct URLs only:
+ * - Ensures users download actual audio files, not web pages
+ * - Consistent behavior across all platforms
+ * - Better user experience for offline listening
+ * 
+ * Error handling:
+ * - Shows toast error if URL resolution fails
+ * - Disables button if platform doesn't support direct download
+ * - Gracefully handles network failures and API errors
+ * 
+ * Security:
+ * - Uses rel="noopener noreferrer" to prevent opener vulnerabilities
+ * - All URLs are time-limited and signed by platforms
+ * - No long-lived tokens exposed in UI
  */
-function getSongAccessUrl(song: Song): string | undefined {
-  // QQ 音乐：返回网页播放页链接
-  if (song.isQQMusic && song.qqMusicMid) {
-    return buildQQMusicUrl(song.qqMusicMid);
-  }
-  
-  // 网易云音乐：返回网页播放页链接
-  if (song.isNetease && song.neteaseId) {
-    return `https://music.163.com/#/song?id=${song.neteaseId}`;
-  }
-  
-  // 本地文件：如果有非 blob URL，返回它
-  if (song.fileUrl && !song.fileUrl.startsWith('blob:')) {
-    return song.fileUrl;
-  }
-  
-  return undefined;
-}
+const DownloadButton: React.FC<{
+    song: Song;
+    onError: (message: string) => void;
+}> = ({ song, onError }) => {
+    const [isLoading, setIsLoading] = useState(false);
+    const [directUrl, setDirectUrl] = useState<string | null>(null);
+    const [canDownload, setCanDownload] = useState(false);
+
+    // Check if download is possible on mount
+    useEffect(() => {
+        setCanDownload(canAttemptDirectDownload(song));
+    }, [song]);
+
+    const handleDownload = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        
+        if (!canDownload) {
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            const url = await getDirectAudioUrl(song);
+            if (url) {
+                // Open direct audio URL in new tab with security attributes
+                // Create a temporary link element to ensure proper rel attributes
+                const link = document.createElement('a');
+                link.href = url;
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.click();
+                setDirectUrl(url);
+            } else {
+                onError('无法获取下载链接 / Cannot get download URL');
+            }
+        } catch (error) {
+            console.error('Download URL resolution failed:', error);
+            onError('下载链接解析失败 / Download URL resolution failed');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Don't show button if download is not supported
+    if (!canDownload) {
+        return (
+            <div 
+                className="w-8 h-8 rounded-full flex items-center justify-center text-white/20 cursor-not-allowed flex-shrink-0"
+                title="此平台不支持直接下载 / Direct download is not available for this track"
+                aria-label="下载不可用"
+            >
+                <DownloadIcon className="w-4 h-4" />
+            </div>
+        );
+    }
+
+    return (
+        <button
+            onClick={handleDownload}
+            disabled={isLoading}
+            className={`w-8 h-8 rounded-full flex items-center justify-center transition-all flex-shrink-0 ${
+                isLoading 
+                    ? 'text-white/20 cursor-wait' 
+                    : 'text-white/40 hover:text-white hover:bg-white/10'
+            }`}
+            title={isLoading ? '获取下载链接中... / Getting download URL...' : '在新标签页打开音频文件 / Open audio file in new tab'}
+            aria-label="下载/打开链接"
+        >
+            <DownloadIcon className="w-4 h-4" />
+        </button>
+    );
+};
 
 const IOS_SCROLLBAR_STYLES = `
   .playlist-scrollbar {
@@ -76,6 +151,7 @@ interface PlaylistPanelProps {
         failed: number;
         errors: string[];
     }>;
+    onDownloadError?: (message: string) => void;
 }
 
 const PlaylistPanel: React.FC<PlaylistPanelProps> = ({
@@ -89,6 +165,7 @@ const PlaylistPanel: React.FC<PlaylistPanelProps> = ({
     accentColor,
     onExportPlaylist,
     onImportPlaylist,
+    onDownloadError,
 }) => {
     const [isAdding, setIsAdding] = useState(false);
     const [visible, setVisible] = useState(false);
@@ -463,25 +540,13 @@ const PlaylistPanel: React.FC<PlaylistPanelProps> = ({
                                                 </div>
                                             </div>
                                             
-                                            {/* 下载按钮 - 仅在非编辑模式显示 */}
-                                            {!isEditing && (() => {
-                                                const downloadUrl = getSongAccessUrl(song);
-                                                if (!downloadUrl) return null;
-                                                
-                                                return (
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            window.open(downloadUrl, '_blank', 'noopener,noreferrer');
-                                                        }}
-                                                        className="w-8 h-8 rounded-full flex items-center justify-center transition-all text-white/40 hover:text-white hover:bg-white/10 flex-shrink-0"
-                                                        title="在新标签页打开歌曲链接"
-                                                        aria-label="下载/打开链接"
-                                                    >
-                                                        <DownloadIcon className="w-4 h-4" />
-                                                    </button>
-                                                );
-                                            })()}
+                                            {/* Download Button - Only shown in non-editing mode */}
+                                            {!isEditing && (
+                                                <DownloadButton 
+                                                    song={song} 
+                                                    onError={onDownloadError || (() => {})} 
+                                                />
+                                            )}
                                         </div>
                                     );
                                 })}
