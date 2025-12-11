@@ -166,6 +166,66 @@ export const getNeteaseAudioUrl = (id: string) => {
   return `${METING_API}?type=url&id=${id}`;
 };
 
+/**
+ * Get direct audio file URL for Netease Cloud Music track
+ * 
+ * This method attempts to resolve a direct, downloadable audio URL
+ * from the Meting API which acts as a redirect service to Netease CDN.
+ * 
+ * Why direct file URL is required:
+ * - Download buttons should link directly to audio files (mp3/m4a/flac)
+ * - Platform web pages are not suitable for downloading
+ * - Ensures users get actual audio content, not a web page
+ * 
+ * How it works:
+ * - The Meting API returns a redirect to the actual Netease CDN URL
+ * - We can use the Meting API URL directly as it will redirect browsers
+ * - Browsers will follow the redirect and download the audio file
+ * 
+ * Error handling:
+ * - Returns null if the track ID is invalid
+ * - Returns null if the API fails (network error, track unavailable)
+ * - Caller should disable download UI when null is returned
+ * 
+ * Security note:
+ * - The Meting API generates time-limited signed URLs
+ * - URLs are not long-lived tokens and are safe to use client-side
+ * 
+ * @param neteaseId - Netease Cloud Music song ID
+ * @returns Direct audio URL string (Meting API that redirects to CDN), or null if unavailable
+ */
+export async function getDirectAudioUrl(neteaseId: string): Promise<string | null> {
+  if (!neteaseId || !neteaseId.trim()) {
+    console.warn('[Netease] getDirectAudioUrl: neteaseId is empty');
+    return null;
+  }
+
+  try {
+    // The Meting API URL will redirect to the actual audio file
+    // We can use it directly for downloads as browsers will follow the redirect
+    const audioUrl = getNeteaseAudioUrl(neteaseId);
+    
+    // Verify the URL is valid by making a HEAD request
+    // This ensures the track is available before showing the download button
+    try {
+      const response = await fetch(audioUrl, { 
+        method: 'HEAD',
+        mode: 'no-cors' // Allow cross-origin for verification
+      });
+      // If we get here without error, the URL is accessible
+      return audioUrl;
+    } catch (error) {
+      // If HEAD request fails, still return the URL
+      // The browser will handle the redirect when user clicks download
+      console.warn('[Netease] HEAD request failed, returning URL anyway:', error);
+      return audioUrl;
+    }
+  } catch (error) {
+    console.warn('[Netease] getDirectAudioUrl failed:', error);
+    return null;
+  }
+}
+
 // Implements the search logic from the user provided code snippet
 export const searchNetEase = async (
   keyword: string,

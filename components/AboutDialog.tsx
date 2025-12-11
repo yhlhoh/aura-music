@@ -73,13 +73,30 @@ const AboutDialog: React.FC<AboutDialogProps> = ({ isOpen, onClose }) => {
                     </div>
 
                     {/* Description */}
-                    <p className="text-white/70 text-[15px] leading-relaxed mb-8 font-medium">
+                    <p className="text-white/70 text-[15px] leading-relaxed mb-6 font-medium">
                         An experimental, pure web music player crafted with
                         <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 font-bold mx-1">
                             Vibe Coding
                         </span>
                         technology.
                     </p>
+
+                    {/* Download Feature Notice */}
+                    <div className="w-full mb-8 px-4 py-3 rounded-xl bg-blue-500/10 border border-blue-500/20">
+                        <div className="flex items-start gap-2">
+                            <svg className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <div className="text-left">
+                                <p className="text-white/80 text-[13px] leading-relaxed font-medium">
+                                    Download opens the direct audio file URL in a new tab. If a platform does not support direct download, the button is disabled.
+                                </p>
+                                <p className="text-white/60 text-[11px] leading-relaxed mt-1">
+                                    下载功能会在新标签页中打开音频文件的直接链接。如果平台不支持直接下载，按钮将被禁用。
+                                </p>
+                            </div>
+                        </div>
+                    </div>
 
                     {/* Tech Stack Grid */}
                     <div className="w-full grid grid-cols-3 gap-2 mb-8">

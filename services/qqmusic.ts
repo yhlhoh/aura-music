@@ -137,10 +137,10 @@ const URL_FIELD_NAMES = ['music', 'url', 'pic', 'picture'] as const;
  * 辅助函数：将对象中所有 URL 字段转换为 HTTPS
  * 专为 317ak API 响应结构设计，仅处理顶层和 data 嵌套字段
  */
-function normalizeUrlsToHttps<T extends Record<string, unknown>>(data: T): T {
+function normalizeUrlsToHttps<T extends Record<string, any>>(data: T): T {
   if (!data || typeof data !== 'object') return data;
   
-  const normalized = { ...data };
+  const normalized: any = { ...data };
   
   // 处理常见的 URL 字段
   for (const field of URL_FIELD_NAMES) {
@@ -151,10 +151,10 @@ function normalizeUrlsToHttps<T extends Record<string, unknown>>(data: T): T {
   
   // 递归处理 data 嵌套字段（317ak API 特定结构）
   if ('data' in normalized && typeof normalized.data === 'object' && normalized.data !== null) {
-    normalized.data = normalizeUrlsToHttps(normalized.data as Record<string, unknown>);
+    normalized.data = normalizeUrlsToHttps(normalized.data as Record<string, any>);
   }
   
-  return normalized;
+  return normalized as T;
 }
 
 export async function searchQQMusic(
@@ -387,4 +387,58 @@ export async function fetchQQMusicLyricsFromInjahow(songmid: string): Promise<st
   }
 
   return lrcText;
+}
+
+/**
+ * Get direct audio file URL for QQ Music track
+ * 
+ * This method attempts to resolve a direct, time-limited audio stream URL
+ * for downloading purposes. It uses the 317ak API which provides direct
+ * CDN URLs that browsers can download.
+ * 
+ * Why direct file URL is required:
+ * - Download buttons should link directly to audio files (mp3/m4a/flac)
+ * - Platform web pages are not suitable for downloading
+ * - Ensures users get actual audio content, not a web page
+ * 
+ * Error handling:
+ * - Returns null if the track cannot be resolved (network error, API failure, VIP-only)
+ * - Returns null if the platform restricts download access
+ * - Caller should disable download UI when null is returned
+ * 
+ * Security note:
+ * - The returned URL is time-limited and signed by the platform
+ * - URLs are not long-lived tokens and are safe to use client-side
+ * 
+ * @param songmid - QQ Music song mid identifier
+ * @returns Direct audio URL string, or null if unavailable
+ */
+export async function getDirectAudioUrl(songmid: string): Promise<string | null> {
+  if (!songmid || !songmid.trim()) {
+    console.warn('[QQ Music] getDirectAudioUrl: songmid is empty');
+    return null;
+  }
+
+  try {
+    // Use 317ak API to get direct audio URL
+    // CKEY and BR are required for QQ Music authentication
+    const CKEY = 'RK7TO6VHAB0WSW7VHXKH';
+    const DEFAULT_BR = 3; // Quality level
+    
+    const parseResult = await parseQQSongBy317ak(songmid, CKEY, DEFAULT_BR);
+    
+    // Extract music URL from various possible fields
+    const musicUrl = parseResult.data?.music || parseResult.data?.url || parseResult.music || parseResult.url;
+    
+    if (!musicUrl) {
+      console.warn('[QQ Music] getDirectAudioUrl: No audio URL in response');
+      return null;
+    }
+    
+    // Ensure HTTPS for security and mixed content compliance
+    return toHttps(musicUrl);
+  } catch (error) {
+    console.warn('[QQ Music] getDirectAudioUrl failed:', error);
+    return null;
+  }
 }

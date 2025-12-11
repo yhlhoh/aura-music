@@ -327,6 +327,7 @@ const App: React.FC = () => {
           accentColor={accentColor}
           onExportPlaylist={playlist.exportPlaylist}
           onImportPlaylist={playlist.importPlaylist}
+          onDownloadError={(message) => toast.error(message)}
         />
       </div>
     </div>
