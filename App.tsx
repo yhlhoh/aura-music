@@ -112,6 +112,18 @@ const App: React.FC = () => {
   }, [isMobileLayout]);
 
   // Global Keyboard Registry Initialization
+  // 全局键盘注册表初始化
+  // 
+  // 作用：监听所有键盘事件，并根据优先级分发给不同的处理器
+  // 
+  // 优先级设计：
+  // - SearchModal: 100（最高）- 搜索弹窗打开时优先处理
+  // - KeyboardShortcuts: 50（中等）- 全局播放控制快捷键
+  // 
+  // 工作原理：
+  // 1. 每个组件通过 useKeyboardScope hook 注册自己的处理器
+  // 2. 按优先级从高到低依次调用处理器
+  // 3. 如果某个处理器返回 true，则停止传播，不再调用后续处理器
   useEffect(() => {
     const handler = (e: KeyboardEvent) => keyboardRegistry.handle(e);
     window.addEventListener("keydown", handler);
@@ -119,6 +131,10 @@ const App: React.FC = () => {
   }, []);
 
   // Global Search Shortcut (Registered directly via useEffect for simplicity, or could use useKeyboardScope with high priority)
+  // 全局搜索快捷键（Ctrl/Cmd + K）
+  // 
+  // 注意：此快捷键直接在 App 组件注册，不经过 keyboardRegistry
+  // 这样可以确保在任何情况下都能打开搜索（即使其他组件阻止了事件传播）
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
