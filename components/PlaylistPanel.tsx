@@ -60,8 +60,13 @@ const DownloadButton: React.FC<{
         try {
             const url = await getDirectAudioUrl(song);
             if (url) {
-                // Open direct audio URL in new tab
-                window.open(url, '_blank', 'noopener,noreferrer');
+                // Open direct audio URL in new tab with security attributes
+                // Create a temporary link element to ensure proper rel attributes
+                const link = document.createElement('a');
+                link.href = url;
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.click();
                 setDirectUrl(url);
             } else {
                 onError('无法获取下载链接 / Cannot get download URL');

@@ -202,24 +202,13 @@ export async function getDirectAudioUrl(neteaseId: string): Promise<string | nul
 
   try {
     // The Meting API URL will redirect to the actual audio file
-    // We can use it directly for downloads as browsers will follow the redirect
+    // We return it directly as browsers will follow the redirect on download
     const audioUrl = getNeteaseAudioUrl(neteaseId);
     
-    // Verify the URL is valid by making a HEAD request
-    // This ensures the track is available before showing the download button
-    try {
-      const response = await fetch(audioUrl, { 
-        method: 'HEAD',
-        mode: 'no-cors' // Allow cross-origin for verification
-      });
-      // If we get here without error, the URL is accessible
-      return audioUrl;
-    } catch (error) {
-      // If HEAD request fails, still return the URL
-      // The browser will handle the redirect when user clicks download
-      console.warn('[Netease] HEAD request failed, returning URL anyway:', error);
-      return audioUrl;
-    }
+    // Note: We cannot verify the URL with a HEAD request in no-cors mode
+    // as the response would be opaque. The browser will handle redirects
+    // when the user clicks the download button.
+    return audioUrl;
   } catch (error) {
     console.warn('[Netease] getDirectAudioUrl failed:', error);
     return null;
