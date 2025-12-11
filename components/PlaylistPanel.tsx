@@ -250,7 +250,20 @@ const PlaylistPanel: React.FC<PlaylistPanelProps> = ({
                     <div className="px-5 pt-5 pb-3 shrink-0 flex items-center justify-between bg-transparent border-b border-white/5">
                         <div className="flex flex-col">
                             <h3 className="text-white text-lg font-bold leading-none tracking-tight">即将播放</h3>
-                            <span className="text-white/40 text-xs font-medium mt-1">{queue.length} 首歌曲</span>
+                            <div className="flex items-center gap-2 mt-1">
+                                <span className="text-white/40 text-xs font-medium">{queue.length} 首歌曲</span>
+                                {(() => {
+                                    const pendingCount = queue.filter(s => s.needsIdBackfill).length;
+                                    if (pendingCount > 0) {
+                                        return (
+                                            <span className="text-yellow-400/70 text-[10px] font-medium">
+                                                ({pendingCount} 首待补全)
+                                            </span>
+                                        );
+                                    }
+                                    return null;
+                                })()}
+                            </div>
                         </div>
 
                         <div className="flex items-center gap-2">
@@ -430,9 +443,20 @@ const PlaylistPanel: React.FC<PlaylistPanelProps> = ({
 
                                             {/* Text */}
                                             <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
-                                                <div className={`text-[15px] font-semibold truncate leading-tight transition-colors duration-300`}
-                                                    style={{ color: isCurrent ? accentColor : 'rgba(255,255,255,0.9)' }}>
-                                                    {song.title}
+                                                <div className="flex items-center gap-1.5">
+                                                    <div className={`text-[15px] font-semibold truncate leading-tight transition-colors duration-300 flex-1`}
+                                                        style={{ color: isCurrent ? accentColor : 'rgba(255,255,255,0.9)' }}>
+                                                        {song.title}
+                                                    </div>
+                                                    {/* 待补全 ID 标记 */}
+                                                    {song.needsIdBackfill && (
+                                                        <span 
+                                                            className="flex-shrink-0 px-1.5 py-0.5 text-[9px] font-medium rounded bg-yellow-500/20 text-yellow-300 border border-yellow-500/30"
+                                                            title="此歌曲缺失平台 ID，使用临时标识"
+                                                        >
+                                                            待补全
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <div className="text-[13px] text-white/50 truncate font-medium">
                                                     {song.artist}

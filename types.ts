@@ -49,8 +49,24 @@ export function getSongUniqueKey(song: Song): string {
   if (song.isQQMusic && song.qqMusicMid) {
     return `qq:${song.qqMusicMid}`;
   }
-  // 本地文件：使用原 ID (格式为 local-timestamp-index)
-  // 降级方案：如果没有平台 ID，使用原 id 或 "unknown:title"
+  
+  // 降级方案：如果没有平台 ID，使用原 id 或 "平台:title" 组合
+  // 这适用于：1) 本地文件 (id 格式为 local-timestamp-index)
+  //         2) 历史数据（标记为 needsIdBackfill）
+  if (song.id && song.id.startsWith('local-')) {
+    return song.id; // 本地文件使用原 ID
+  }
+  
+  // 对于缺失 ID 的网易云或 QQ 音乐歌曲，使用 "平台:title" 降级
+  // 并在键中添加 @pending 标记，表明这是临时标识
+  if (song.isNetease && song.needsIdBackfill) {
+    return `netease:${song.title}@pending`;
+  }
+  if (song.isQQMusic && song.needsIdBackfill) {
+    return `qq:${song.title}@pending`;
+  }
+  
+  // 最终降级：使用原 id 或 "unknown:title"
   return song.id || `unknown:${song.title}`;
 }
 

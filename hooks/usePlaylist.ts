@@ -52,12 +52,50 @@ export interface ImportResult {
   songs: Song[];
 }
 
+/**
+ * 迁移旧版歌曲数据：检查并标记缺失平台 ID 的歌曲
+ * 对于没有平台 ID 的历史数据，标记为需要补全
+ * @param songs 歌曲列表
+ * @returns 迁移后的歌曲列表
+ */
+function migrateOldSongs(songs: Song[]): Song[] {
+  return songs.map(song => {
+    // 检查是否缺失平台 ID
+    const needsMigration = 
+      (song.isNetease && !song.neteaseId) || 
+      (song.isQQMusic && !song.qqMusicMid) ||
+      (!song.isNetease && !song.isQQMusic && !song.id.startsWith('local-'));
+    
+    if (needsMigration) {
+      // 标记为需要补全 ID
+      return {
+        ...song,
+        needsIdBackfill: true,
+      };
+    }
+    
+    return song;
+  });
+}
+
 export const usePlaylist = () => {
-  // 自动恢复 queue
+  // 自动恢复 queue，并执行数据迁移
   const [queue, setQueue] = useState<Song[]>(() => {
     try {
       const saved = localStorage.getItem('aura_playlist_queue');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsedQueue = JSON.parse(saved);
+        // 执行历史数据迁移
+        const migratedQueue = migrateOldSongs(parsedQueue);
+        
+        // 统计需要迁移的数量
+        const needsMigrationCount = migratedQueue.filter(s => s.needsIdBackfill).length;
+        if (needsMigrationCount > 0) {
+          console.log(`[数据迁移] 检测到 ${needsMigrationCount} 首歌曲缺失平台 ID，已标记为待补全`);
+        }
+        
+        return migratedQueue;
+      }
     } catch {}
     return [];
   });
