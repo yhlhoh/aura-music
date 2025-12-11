@@ -198,8 +198,16 @@ const SearchModal: React.FC<SearchModalProps> = ({
     (e) => {
       if (!isOpen) return false;
 
+      // 关闭右键菜单（如果打开）
       if (search.contextMenu) {
         search.closeContextMenu();
+        return true;
+      }
+
+      // "/" 键聚焦搜索输入框（仅当输入框未聚焦时）
+      if (e.key === "/" && document.activeElement !== inputRef.current) {
+        e.preventDefault();
+        inputRef.current?.focus();
         return true;
       }
 
@@ -406,9 +414,13 @@ const SearchModal: React.FC<SearchModalProps> = ({
     <div
       className="fixed inset-0 z-[9999] flex items-center justify-center px-4 select-none font-sans"
       /**
-       * 容器层：用于捕获点击事件
+       * 外层容器：用于捕获点击事件
        * - 点击 Modal 外部（遮罩层）时关闭 Modal
        * - 点击 Modal 内部时不关闭（由子元素阻止事件冒泡）
+       * 
+       * 重要：使用 onMouseDown 而非 onClick，因为：
+       * 1. onMouseDown 在 onContextMenu 之前触发
+       * 2. 如果在这里关闭上下文菜单，不会影响右键菜单的打开
        */
       onMouseDown={(e) => {
         const target = e.target as HTMLElement;
@@ -447,8 +459,14 @@ const SearchModal: React.FC<SearchModalProps> = ({
          * 阻止点击事件冒泡到外层容器
          * - 这样点击 Modal 内部（输入框、按钮、结果列表等）不会触发关闭
          * - 只有点击 Modal 外部的遮罩层才会关闭
+         * 
+         * 关键修复：不在这里阻止 onContextMenu 事件的传播
+         * - 只阻止 onMouseDown 事件传播到外层
+         * - 允许 onContextMenu 事件正常触发（在结果项上）
+         * - 这样右键菜单可以正常工作，不会被父组件阻断
          */
         onMouseDown={(e) => {
+          // 只阻止 mousedown 事件传播，不影响 contextmenu 事件
           e.stopPropagation();
         }}
       >
@@ -963,15 +981,29 @@ const SearchModal: React.FC<SearchModalProps> = ({
           )}
         </div>
 
-        {/* Context Menu Portal */}
+        {/* 
+          右键菜单 Portal 
+          
+          重要：此菜单通过 createPortal 渲染到 document.body
+          - 独立于 SearchModal 的 DOM 层级
+          - 使用 .context-menu-container 类名用于外部点击检测
+          - z-index 设置为 10000，确保在 Modal (z-index: 9999) 之上
+          
+          样式说明：
+          - 使用 Sequoia 风格的毛玻璃效果和圆角
+          - backdrop-blur-[80px] 实现强烈的背景模糊
+          - saturate-150 增强色彩饱和度
+          - shadow-2xl 提供深度阴影效果
+        */}
         {search.contextMenu &&
           createPortal(
             <div
-              className="context-menu-container fixed z-[10000] w-48 bg-[#1e1e1e]/60 backdrop-blur-[80px] saturate-150 border border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100 origin-top-left p-1.5 flex flex-col gap-0.5"
+              className="context-menu-container fixed z-[10000] w-48 bg-black/40 backdrop-blur-[80px] saturate-150 border border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100 origin-top-left p-1 flex flex-col gap-0.5"
               style={{ top: search.contextMenu.y, left: search.contextMenu.x }}
               onContextMenu={(e) => e.preventDefault()}
             >
-              <div
+              {/* 立即播放选项 */}
+              <button
                 onClick={() => {
                   if (search.contextMenu!.type === "queue") {
                     const qItem = search.contextMenu!.track as Song;
@@ -987,37 +1019,39 @@ const SearchModal: React.FC<SearchModalProps> = ({
                     );
                   }
                   search.closeContextMenu();
-                  // 不自动关闭 modal，便于调试
+                  // 不自动关闭 modal，便于用户连续操作
                 }}
-                style={{padding:'8px',background:'#333',color:'#fff',margin:'4px',borderRadius:'8px',cursor:'pointer'}}
+                className="w-full px-3 py-2 text-left text-sm font-medium text-white/90 hover:bg-white/10 active:bg-white/15 rounded-lg transition-colors cursor-pointer"
               >
                 立即播放
-              </div>
+              </button>
+              
+              {/* 加入队列选项（仅在线音乐） */}
               {search.contextMenu.type === "netease" && (
-                <div
+                <button
                   onClick={() => {
                     const track = search.contextMenu!.track as NeteaseTrackInfo;
                     addNeteaseToQueue(track);
                     search.closeContextMenu();
-                    // 不自动关闭 modal，便于调试
+                    // 不自动关闭 modal，便于用户连续操作
                   }}
-                  style={{padding:'8px',background:'#333',color:'#fff',margin:'4px',borderRadius:'8px',cursor:'pointer'}}
+                  className="w-full px-3 py-2 text-left text-sm font-medium text-white/90 hover:bg-white/10 active:bg-white/15 rounded-lg transition-colors cursor-pointer"
                 >
                   加入队列
-                </div>
+                </button>
               )}
               {search.contextMenu.type === "qqmusic" && (
-                <div
+                <button
                   onClick={() => {
                     const track = search.contextMenu!.track as QQTrackInfo;
                     addQQMusicToQueue(track);
                     search.closeContextMenu();
-                    // 不自动关闭 modal，便于调试
+                    // 不自动关闭 modal，便于用户连续操作
                   }}
-                  style={{padding:'8px',background:'#333',color:'#fff',margin:'4px',borderRadius:'8px',cursor:'pointer'}}
+                  className="w-full px-3 py-2 text-left text-sm font-medium text-white/90 hover:bg-white/10 active:bg-white/15 rounded-lg transition-colors cursor-pointer"
                 >
                   加入队列
-                </div>
+                </button>
               )}
             </div>,
             document.body,

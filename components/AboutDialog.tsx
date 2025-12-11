@@ -74,6 +74,37 @@ const AboutDialog: React.FC<AboutDialogProps> = ({ isOpen, onClose }) => {
                         <TechBadge label="Claude" />
                     </div>
 
+                    {/* 快捷键说明区域 */}
+                    <div className="w-full mb-6">
+                        <div className="flex items-center justify-between mb-3 px-1">
+                            <h4 className="text-white/90 text-sm font-semibold">快捷键说明</h4>
+                            <span className="text-white/40 text-xs">
+                                {typeof navigator !== 'undefined' && navigator.platform.includes('Mac') ? '⌘ = Cmd' : 'Ctrl'}
+                            </span>
+                        </div>
+                        <div className="w-full bg-white/5 rounded-2xl border border-white/10 p-4 max-h-[240px] overflow-y-auto">
+                            <div className="space-y-2 text-xs">
+                                <ShortcutRow keys={["Ctrl/⌘", "K"]} desc="打开搜索" />
+                                <ShortcutRow keys={["/"]} desc="聚焦搜索输入框（搜索弹窗内）" />
+                                <ShortcutRow keys={["Space"]} desc="播放/暂停（非输入框时）" />
+                                <ShortcutRow keys={["←", "→"]} desc="快退/快进 5秒" />
+                                <ShortcutRow keys={["Ctrl/⌘", "←/→"]} desc="上一首/下一首" />
+                                <ShortcutRow keys={["↑", "↓"]} desc="音量调节" />
+                                <ShortcutRow keys={["L"]} desc="切换循环模式" />
+                                <ShortcutRow keys={["V"]} desc="打开音量对话框" />
+                                <ShortcutRow keys={["S"]} desc="打开速度设置" />
+                                <ShortcutRow keys={["Ctrl/⌘", "P"]} desc="打开/关闭播放队列" />
+                                <ShortcutRow keys={["Ctrl/⌘", "/"]} desc="显示快捷键帮助" />
+                                <ShortcutRow keys={["Esc"]} desc="关闭弹窗/对话框" />
+                                <ShortcutRow keys={["Tab"]} desc="切换搜索标签页" />
+                                <ShortcutRow keys={["Enter"]} desc="确认选择/执行搜索" />
+                            </div>
+                        </div>
+                        <p className="text-white/40 text-[11px] mt-2 px-1 leading-relaxed">
+                            提示：在输入框内输入时，部分快捷键会自动禁用以避免误触。Windows/Linux 使用 Ctrl，macOS 使用 Cmd (⌘)。
+                        </p>
+                    </div>
+
                     {/* Selection List */}
                     <div className="w-full flex flex-col gap-2 mb-6">
                         <a
@@ -118,6 +149,26 @@ const AboutDialog: React.FC<AboutDialogProps> = ({ isOpen, onClose }) => {
 const TechBadge = ({ label }: { label: string }) => (
     <div className="flex items-center justify-center py-2 px-1 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors">
         <span className="text-[11px] font-medium text-white/60">{label}</span>
+    </div>
+);
+
+/**
+ * ShortcutRow - 快捷键说明行组件
+ * 用于在关于页面展示单个快捷键及其说明
+ */
+const ShortcutRow = ({ keys, desc }: { keys: string[]; desc: string }) => (
+    <div className="flex items-center justify-between py-1.5">
+        <span className="text-white/70 font-medium">{desc}</span>
+        <div className="flex gap-1">
+            {keys.map((k, i) => (
+                <kbd
+                    key={i}
+                    className="min-w-[24px] h-5 px-1.5 flex items-center justify-center bg-white/10 border border-white/5 rounded text-[10px] font-semibold text-white/90"
+                >
+                    {k}
+                </kbd>
+            ))}
+        </div>
     </div>
 );
 

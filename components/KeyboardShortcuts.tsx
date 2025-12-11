@@ -2,6 +2,24 @@ import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useKeyboardScope } from "../hooks/useKeyboardScope";
 
+/**
+ * KeyboardShortcuts 组件 - 全局键盘快捷键处理与帮助对话框
+ * 
+ * 功能说明：
+ * 1. 提供全局键盘快捷键支持（播放控制、音量调节等）
+ * 2. 显示快捷键帮助对话框（Ctrl+/）
+ * 3. 智能检测输入框焦点，避免快捷键误触
+ * 
+ * 优先级设计：
+ * - 此组件使用优先级 50（较低）
+ * - SearchModal 使用优先级 100（较高）
+ * - 确保搜索弹窗打开时，其快捷键优先生效
+ * 
+ * 输入框保护机制：
+ * - 检查事件目标是否为 INPUT、TEXTAREA 或 contentEditable
+ * - 如果是，则不处理快捷键，避免干扰用户输入
+ */
+
 interface KeyboardShortcutsProps {
   isPlaying: boolean;
   onPlayPause: () => void;
@@ -37,9 +55,11 @@ const KeyboardShortcuts: React.FC<KeyboardShortcutsProps> = ({
   onToggleVolumeDialog,
   onToggleSpeedDialog,
 }) => {
+  // 对话框显示状态
   const [isOpen, setIsOpen] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
 
+  // 控制对话框的淡入淡出动画
   useEffect(() => {
     if (isOpen) {
       setIsVisible(true);
@@ -49,30 +69,41 @@ const KeyboardShortcuts: React.FC<KeyboardShortcutsProps> = ({
     }
   }, [isOpen]);
 
-  // Use keyboard scope with lower priority (50) for global shortcuts
+  /**
+   * 全局键盘快捷键处理器
+   * 
+   * 优先级：50（低于 SearchModal 的 100）
+   * 
+   * 输入框保护：
+   * - 当用户在 INPUT、TEXTAREA 或可编辑元素中输入时
+   * - 返回 false，不处理快捷键
+   * - 避免误触播放/暂停等全局操作
+   */
   useKeyboardScope(
     (e) => {
       const target = e.target as HTMLElement;
+      // 检查是否在输入框内，如果是则不处理快捷键
       if (
         ["INPUT", "TEXTAREA"].includes(target.tagName) ||
         target.isContentEditable
       )
         return false;
 
-      // Ctrl + /
+      // Ctrl + / 显示/隐藏快捷键帮助对话框
       if ((e.ctrlKey || e.metaKey) && e.key === "/") {
         e.preventDefault();
         setIsOpen((prev) => !prev);
         return true;
       }
 
-      // Ctrl + P
+      // Ctrl + P 打开/关闭播放队列
       if ((e.ctrlKey || e.metaKey) && e.key === "p") {
         e.preventDefault();
         onTogglePlaylist();
         return true;
       }
 
+      // Esc 键关闭帮助对话框
       if (e.key === "Escape") {
         if (isOpen) {
           e.preventDefault();
@@ -82,47 +113,48 @@ const KeyboardShortcuts: React.FC<KeyboardShortcutsProps> = ({
         return false;
       }
 
+      // 处理其他快捷键
       switch (e.key) {
-        case " ": // Space
+        case " ": // 空格键：播放/暂停
           e.preventDefault();
           onPlayPause();
           return true;
-        case "ArrowRight":
+        case "ArrowRight": // 右箭头：快进 5 秒 或 下一首（Ctrl+右）
           e.preventDefault();
           if (e.ctrlKey || e.metaKey) {
-            onNext();
+            onNext(); // Ctrl/Cmd + 右箭头 = 下一首
           } else {
-            onSeek(Math.min(currentTime + 5, duration));
+            onSeek(Math.min(currentTime + 5, duration)); // 右箭头 = 快进 5 秒
           }
           return true;
-        case "ArrowLeft":
+        case "ArrowLeft": // 左箭头：快退 5 秒 或 上一首（Ctrl+左）
           e.preventDefault();
           if (e.ctrlKey || e.metaKey) {
-            onPrev();
+            onPrev(); // Ctrl/Cmd + 左箭头 = 上一首
           } else {
-            onSeek(Math.max(currentTime - 5, 0));
+            onSeek(Math.max(currentTime - 5, 0)); // 左箭头 = 快退 5 秒
           }
           return true;
-        case "ArrowUp":
+        case "ArrowUp": // 上箭头：增加音量
           e.preventDefault();
           onVolumeChange(Math.min(volume + 0.1, 1));
           return true;
-        case "ArrowDown":
+        case "ArrowDown": // 下箭头：降低音量
           e.preventDefault();
           onVolumeChange(Math.max(volume - 0.1, 0));
           return true;
         case "l":
-        case "L":
+        case "L": // L 键：切换循环模式
           e.preventDefault();
           onToggleMode();
           return true;
         case "v":
-        case "V":
+        case "V": // V 键：打开音量对话框
           e.preventDefault();
           onToggleVolumeDialog();
           return true;
         case "s":
-        case "S":
+        case "S": // S 键：打开速度设置对话框
           e.preventDefault();
           onToggleSpeedDialog();
           return true;
@@ -130,7 +162,7 @@ const KeyboardShortcuts: React.FC<KeyboardShortcutsProps> = ({
 
       return false;
     },
-    50, // Lower priority than SearchModal (100)
+    50, // 优先级：50（低于 SearchModal）
     true,
   );
 
