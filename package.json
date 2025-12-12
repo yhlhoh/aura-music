@@ -3,11 +3,14 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "bun test tests"
+    "test": "bun test tests",
+    "build:electron": "vite build --base ./",
+    "dist:win": "npm run build:electron && electron-builder --win --x64"
   },
   "dependencies": {
     "@google/genai": "^1.30.0",
@@ -21,7 +24,32 @@
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.0.0",
+    "electron": "^39.2.6",
+    "electron-builder": "^26.0.12",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
+  },
+  "build": {
+    "appId": "com.yhlhoh.aura-music",
+    "productName": "Aura Music",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "build/icon.*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png"
+    }
   }
 }
