@@ -30,7 +30,7 @@ app.whenReady().then(() => {
     details.requestHeaders['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/143.0.0.0';
     details.requestHeaders['Referer'] = 'https://song.y-dev.tech/';
     callback({ requestHeaders: details.requestHeaders });
-  }
+  })
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
