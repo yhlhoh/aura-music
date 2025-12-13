@@ -648,20 +648,7 @@ export const usePlayer = ({
 
     // 初始化加载逻辑
     const initializeAudio = async () => {
-      // 对于 QQ 音乐，先尝试刷新 URL
       let fileUrl = currentSong.fileUrl;
-      
-      if (currentSong.isQQMusic && currentSong.qqMusicMid) {
-        const refreshedUrl = await refreshQQMusicUrl();
-        if (refreshedUrl && !canceled) {
-          fileUrl = refreshedUrl;
-          // 清除旧 URL 的缓存
-          if (currentSong.fileUrl !== refreshedUrl) {
-            audioResourceCache.delete(currentSong.fileUrl);
-          }
-        }
-      }
-
       if (canceled) return;
 
       if (fileUrl.startsWith("blob:") || fileUrl.startsWith("data:")) {
