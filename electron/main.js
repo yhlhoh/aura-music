@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow , session, Menu} = require('electron');
 const path = require('path');
 
 function createWindow() {
@@ -12,6 +12,7 @@ function createWindow() {
     },
     icon: path.join(__dirname, '../build/icon.png'),
   });
+  Menu.setApplicationMenu(null);
 
   // Load the built Vite app
   mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
@@ -24,6 +25,12 @@ function createWindow() {
 
 app.whenReady().then(() => {
   createWindow();
+  session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
+    // Simulator browser and add Referer header
+    details.requestHeaders['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/143.0.0.0';
+    details.requestHeaders['Referer'] = 'https://song.y-dev.tech/';
+    callback({ requestHeaders: details.requestHeaders });
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
