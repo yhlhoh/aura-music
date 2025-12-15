@@ -14,6 +14,22 @@ View your app in AI Studio: https://ai.studio/apps/drive/1ggcfQNwQs0cGrbzb1oapyS
 - [x] **Canvas Lyric Rendering**: High-performance, custom-drawn lyric visualization on HTML5 Canvas.
 - [x] **Music Import & Search**: Seamlessly search and import music from external providers or local files.
 - [x] **Audio Manipulation**: Real-time control over playback speed and pitch shifting.
+- [x] **QQ Music Retry Logic**: Automatic retry mechanism for expired/invalid QQ Music stream URLs with configurable retry attempts and delays.
+
+## QQ Music URL Retry Mechanism
+
+QQ Music stream URLs are time-limited and may expire during playback. The application implements an automatic retry mechanism to handle expired URLs:
+
+- **Max Retries**: 3 attempts (configurable via `QQ_MUSIC_RETRY_CONFIG.MAX_RETRIES` in `hooks/usePlayer.ts`)
+- **Retry Delay**: 1000ms between attempts (configurable via `QQ_MUSIC_RETRY_CONFIG.RETRY_DELAY_MS`)
+- **Behavior**: When a QQ Music track fails to play, the app automatically:
+  1. Detects the error and checks if it's a QQ Music track
+  2. Fetches a fresh stream URL from the API
+  3. Updates the audio source and retries playback
+  4. Logs each retry attempt for debugging
+  5. Gives up after max retries and pauses playback
+
+**Logging**: All retry attempts are logged to the browser console with `[QQ Music Retry]` prefix for easy debugging.
 
 ## Run Locally
 
