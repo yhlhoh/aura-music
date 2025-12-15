@@ -23,7 +23,7 @@ const DEFAULT_BR = 3;
 // QQ 音乐播放重试配置
 // Configuration for QQ Music playback retry logic
 const QQ_MUSIC_RETRY_CONFIG = {
-  MAX_RETRIES: 3,        // Maximum number of retry attempts (initial attempt + 2 retries)
+  MAX_RETRIES: 3,        // Maximum number of retry attempts after initial failure
   RETRY_DELAY_MS: 1000,  // Delay between retry attempts in milliseconds
 } as const;
 
@@ -485,39 +485,46 @@ export const usePlayer = ({
             
             // Attempt to refresh the QQ Music URL
             const parseResult = await parseQQSongBy317ak(currentSong.qqMusicMid, CKEY, DEFAULT_BR);
-            const newUrl = parseResult.data?.music || parseResult.music || parseResult.url || parseResult.data?.url;
             
-            if (newUrl) {
-              const httpsUrl = toHttps(newUrl);
-              console.log(`[QQ Music Retry] Successfully refreshed URL, retrying playback (attempt ${qqMusicRetryCount.current})`);
-              
-              // Update the song's URL in the queue
-              updateSongInQueue(currentSong.id, { fileUrl: httpsUrl });
-              
-              // Clear the cache for the old URL to force re-fetch
-              if (currentSong.fileUrl) {
-                audioResourceCache.delete(currentSong.fileUrl);
-              }
-              
-              // Reset audio element and update source
-              audio.pause();
-              audio.currentTime = 0;
-              audio.src = httpsUrl;
-              
-              // Attempt to play again
-              await audio.load();
-              if (playState === PlayState.PLAYING) {
-                try {
-                  await audio.play();
-                  console.log(`[QQ Music Retry] Playback resumed successfully after retry`);
-                  // Reset retry count on success
-                  qqMusicRetryCount.current = 0;
-                } catch (playError) {
-                  console.error(`[QQ Music Retry] Play failed after URL refresh:`, playError);
-                }
+            // Extract URL with proper fallback chain (matching QQ317ParseResponse type structure)
+            const newUrl = parseResult.data?.music || parseResult.data?.url || parseResult.music || parseResult.url;
+            
+            if (!newUrl) {
+              console.error(`[QQ Music Retry] Failed to get new URL from API response`);
+              throw new Error('No URL in API response');
+            }
+            
+            const httpsUrl = toHttps(newUrl);
+            console.log(`[QQ Music Retry] Successfully refreshed URL, retrying playback (attempt ${qqMusicRetryCount.current})`);
+            
+            // Update the song's URL in the queue
+            updateSongInQueue(currentSong.id, { fileUrl: httpsUrl });
+            
+            // Clear the cache for the old URL to force re-fetch
+            if (currentSong.fileUrl) {
+              audioResourceCache.delete(currentSong.fileUrl);
+            }
+            
+            // Reset audio element and update source
+            audio.pause();
+            audio.currentTime = 0;
+            audio.src = httpsUrl;
+            
+            // Attempt to play again
+            await audio.load();
+            if (playState === PlayState.PLAYING) {
+              try {
+                await audio.play();
+                console.log(`[QQ Music Retry] Playback resumed successfully after retry`);
+                // Reset retry count on success
+                qqMusicRetryCount.current = 0;
+              } catch (playError) {
+                console.error(`[QQ Music Retry] Play failed after URL refresh (attempt ${qqMusicRetryCount.current}):`, playError);
+                // Don't reset retry count here - let it try again on next error if retries available
               }
             } else {
-              console.error(`[QQ Music Retry] Failed to get new URL from API`);
+              // If not playing, consider it a successful URL refresh
+              qqMusicRetryCount.current = 0;
             }
           } catch (error) {
             console.error(`[QQ Music Retry] URL refresh failed (attempt ${qqMusicRetryCount.current}):`, error);
