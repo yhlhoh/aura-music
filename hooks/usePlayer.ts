@@ -20,6 +20,13 @@ import { parseQQSongBy317ak, toHttps } from "../services/qqmusic";
 const CKEY = 'RK7TO6VHAB0WSW7VHXKH';
 const DEFAULT_BR = 3;
 
+// QQ 音乐播放重试配置
+// Configuration for QQ Music playback retry logic
+const QQ_MUSIC_RETRY_CONFIG = {
+  MAX_RETRIES: 3,        // Maximum number of retry attempts after initial failure
+  RETRY_DELAY_MS: 1000,  // Delay between retry attempts in milliseconds
+} as const;
+
 type MatchStatus = "idle" | "matching" | "success" | "failed";
 
 interface UsePlayerParams {
@@ -93,6 +100,11 @@ export const usePlayer = ({
   const audioRef = useRef<HTMLAudioElement>(null);
   const isSeekingRef = useRef(false);
   const isInitialMount = useRef(true);
+  
+  // Track retry attempts for QQ Music URL refresh
+  // Reset when song changes or playback succeeds
+  const qqMusicRetryCount = useRef<number>(0);
+  const isRetryingQQMusic = useRef<boolean>(false);
 
   const pauseAndResetCurrentAudio = useCallback(() => {
     if (!audioRef.current) return;
@@ -449,8 +461,89 @@ export const usePlayer = ({
     const audio = audioRef.current;
     if (!audio) return;
 
-    const handleAudioError = () => {
-      console.warn("Audio playback error detected");
+    const handleAudioError = async () => {
+      const errorDetails = audio.error;
+      const errorCode = errorDetails?.code;
+      const errorMessage = errorDetails?.message || 'Unknown error';
+      
+      console.warn(`Audio playback error detected: code=${errorCode}, message=${errorMessage}`);
+      
+      // Check if this is a QQ Music track and retry is applicable
+      if (currentSong?.isQQMusic && currentSong?.qqMusicMid && !isRetryingQQMusic.current) {
+        // Check if we haven't exceeded max retries
+        if (qqMusicRetryCount.current < QQ_MUSIC_RETRY_CONFIG.MAX_RETRIES) {
+          qqMusicRetryCount.current += 1;
+          isRetryingQQMusic.current = true;
+          
+          console.log(
+            `[QQ Music Retry] Attempting to refresh URL (attempt ${qqMusicRetryCount.current} of ${QQ_MUSIC_RETRY_CONFIG.MAX_RETRIES}) for: ${currentSong.title}`
+          );
+          
+          try {
+            // Wait for retry delay before attempting
+            await new Promise(resolve => setTimeout(resolve, QQ_MUSIC_RETRY_CONFIG.RETRY_DELAY_MS));
+            
+            // Attempt to refresh the QQ Music URL
+            const parseResult = await parseQQSongBy317ak(currentSong.qqMusicMid, CKEY, DEFAULT_BR);
+            
+            // Extract URL with proper fallback chain (matching QQ317ParseResponse type structure)
+            const newUrl = parseResult.data?.music || parseResult.data?.url || parseResult.music || parseResult.url;
+            
+            if (!newUrl) {
+              console.error(`[QQ Music Retry] Failed to get new URL from API response`);
+              throw new Error('No URL in API response');
+            }
+            
+            const httpsUrl = toHttps(newUrl);
+            console.log(`[QQ Music Retry] Successfully refreshed URL, retrying playback (attempt ${qqMusicRetryCount.current})`);
+            
+            // Update the song's URL in the queue
+            updateSongInQueue(currentSong.id, { fileUrl: httpsUrl });
+            
+            // Clear the cache for the old URL to force re-fetch
+            if (currentSong.fileUrl) {
+              audioResourceCache.delete(currentSong.fileUrl);
+            }
+            
+            // Reset audio element and update source
+            audio.pause();
+            audio.currentTime = 0;
+            audio.src = httpsUrl;
+            
+            // Attempt to play again
+            await audio.load();
+            if (playState === PlayState.PLAYING) {
+              try {
+                await audio.play();
+                console.log(`[QQ Music Retry] Playback resumed successfully after retry`);
+                // Reset retry count on success
+                qqMusicRetryCount.current = 0;
+              } catch (playError) {
+                console.error(`[QQ Music Retry] Play failed after URL refresh (attempt ${qqMusicRetryCount.current}):`, playError);
+                // Don't reset retry count here - let it try again on next error if retries available
+              }
+            } else {
+              // If not playing, consider it a successful URL refresh
+              qqMusicRetryCount.current = 0;
+            }
+          } catch (error) {
+            console.error(`[QQ Music Retry] URL refresh failed (attempt ${qqMusicRetryCount.current}):`, error);
+          } finally {
+            isRetryingQQMusic.current = false;
+          }
+          
+          // Don't pause/reset if we're retrying
+          return;
+        } else {
+          console.error(
+            `[QQ Music Retry] Max retries (${QQ_MUSIC_RETRY_CONFIG.MAX_RETRIES}) exceeded for: ${currentSong.title}. Giving up.`
+          );
+          // Reset retry count for next song
+          qqMusicRetryCount.current = 0;
+        }
+      }
+      
+      // Default error handling: pause and reset
       audio.pause();
       audio.currentTime = 0;
       setPlayState(PlayState.PAUSED);
@@ -461,7 +554,7 @@ export const usePlayer = ({
     return () => {
       audio.removeEventListener("error", handleAudioError);
     };
-  }, [audioRef]);
+  }, [audioRef, currentSong, playState, updateSongInQueue]);
 
   // Provide high-precision time updates directly from the native audio element
   useEffect(() => {
@@ -941,6 +1034,10 @@ export const usePlayer = ({
       return;
     }
     setCurrentTime(0);
+    
+    // Reset QQ Music retry counter when song changes
+    qqMusicRetryCount.current = 0;
+    isRetryingQQMusic.current = false;
   }, [currentIndex]);
 
   // Save player state to localStorage whenever currentSong or currentTime changes
