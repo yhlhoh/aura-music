@@ -30,7 +30,7 @@ export const applyImageCorsProxy = (url?: string): string | undefined => {
     // Ensure URL is HTTPS
     const httpsUrl = url.replace(/^http:/, 'https:');
     // Apply CORS proxy with URL encoding
-    return `https://proxy.corsfix.com/`+httpsUrl;
+    return `https://api.cors.lol/?url=`+httpsUrl;
   }
   
   return url;
