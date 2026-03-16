@@ -22,7 +22,7 @@ import { getDirectAudioUrl as getNeteaseDirectUrl } from './lyricsService';
  * metadata and attempts to resolve a direct, downloadable audio URL.
  * 
  * Platform support:
- * - QQ Music: Resolves via 317ak API to get time-limited CDN URLs
+ * - QQ Music: Uses Meting API which redirects to QQ Music CDN
  * - Netease Cloud Music: Uses Meting API which redirects to Netease CDN
  * - Local files: Returns the file URL if not a blob URL
  * 

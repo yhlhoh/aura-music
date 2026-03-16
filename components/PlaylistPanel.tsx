@@ -16,7 +16,7 @@ import { getDirectAudioUrl, canAttemptDirectDownload } from '../services/audioAd
  * This component resolves the direct audio URL and opens it in a new tab.
  * 
  * Behavior:
- * - QQ Music: Fetches time-limited CDN URL via 317ak API
+ * - QQ Music: Uses Meting API redirect to QQ Music CDN
  * - Netease: Uses Meting API redirect to Netease CDN
  * - Local files: Uses the existing file URL
  * - Platform pages: NOT supported - button is disabled

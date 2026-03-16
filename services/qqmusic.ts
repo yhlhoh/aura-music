@@ -1,74 +1,8 @@
-// QQ音乐 API 封装
-// 搜索接口: https://yutangxiaowu.cn:3015/api/qmusic/search
-// 旧解析接口: https://yutangxiaowu.cn:3015/api/parseqmusic
-// 新解析接口: https://api.317ak.cn/api/QQ/qqyy2
-// 歌词接口: https://api.injahow.cn/meting/?type=lrc&id=SONGMID&server=tencent
-
-export type QQSongItem = {
-  albumid: number;
-  albummid: string;
-  albumname: string;
-  songid: number;
-  songmid: string;
-  songname: string;
-  singer: Array<{ id: number; mid: string; name: string }>;
-  interval: number;
-  size128?: number;
-  size320?: number;
-  sizeflac?: number;
-  pay?: { payplay?: number; paydownload?: number };
-};
-
-export type QQSearchResponse = {
-  result: number;
-  data: {
-    list: QQSongItem[];
-    pageNo: number;
-    pageSize: number;
-    total: number;
-    key: string;
-    t: string;
-    type: string;
-  };
-};
-
-export type QQParseResponse = {
-  success: boolean;
-  detail: {
-    songName: string;
-    singer?: string;
-    singerName?: string;
-    album?: string;
-    duration?: string;
-    interval?: number;
-  };
-  songmid: string;
-  url: string; // 播放地址
-  lyric?: string;
-};
-
-// 317ak API 响应类型
-export type QQ317ParseResponse = {
-  status: number; // 200 success
-  msg?: string;
-  text?: string; // some variants
-  data?: {
-    music?: string; // 播放直链
-    url?: string;   // 播放直链（备用字段）
-    title?: string;
-    artist?: string;
-    album?: string;
-    pic?: string;       // 封面图片 URL
-    picture?: string;   // 兼容字段
-  };
-  music?: string; // 顶层兼容
-  url?: string;   // 顶层兼容
-  title?: string;
-  artist?: string;
-  album?: string;
-  pic?: string;       // 顶层兼容
-  picture?: string;   // 顶层兼容
-};
+// QQ音乐 API 封装（通过 Meting API）
+// Meting API: https://api.qijieya.cn/meting/
+// 搜索: ?type=search&id=关键词&server=tencent
+// 播放链接: ?type=url&id=SONGMID&server=tencent
+// 歌词: ?type=lrc&id=SONGMID&server=tencent
 
 export interface QQTrackInfo {
   id: string;
@@ -82,12 +16,20 @@ export interface QQTrackInfo {
   albumImageUrl?: string; // QQ 音乐封面图 URL
 }
 
-const SEARCH_URL = 'https://yutangxiaowu.cn:3015/api/qmusic/search';
-const PARSE_URL = 'https://yutangxiaowu.cn:3015/api/parseqmusic';
-const PARSE_317AK_URL = 'https://api.317ak.cn/api/QQ/qqyy2';
-const INJAHOW_LYRICS_URL = 'https://api.injahow.cn/meting/';
-const INJAHOW_LYRICS_TYPE = 'lrc';
-const INJAHOW_SERVER = 'tencent';
+// Meting API 搜索结果条目
+interface MetingSearchItem {
+  id: string;
+  name: string;
+  artist: string;
+  album: string;
+  pic_id: string;
+  url_id: string;
+  lrc_id: string;
+  source: string;
+}
+
+const METING_API_BASE = 'https://api.qijieya.cn/meting/';
+const METING_TENCENT = 'tencent';
 
 /**
  * 构建 QQ 音乐网页 URL
@@ -130,47 +72,22 @@ export function toHttps(url?: string): string | undefined {
   return url.replace('http://', 'https://');
 }
 
-// URL 字段名称列表（用于 HTTPS 转换）
-const URL_FIELD_NAMES = ['music', 'url', 'pic', 'picture'] as const;
-/**
- * 辅助函数：将对象中所有 URL 字段转换为 HTTPS
- * 专为 317ak API 响应结构设计，仅处理顶层和 data 嵌套字段
- */
-function normalizeUrlsToHttps<T extends Record<string, unknown>>(data: T): T {
-  if (!data || typeof data !== 'object') return data;
-  
-  const normalized: Record<string, unknown> = { ...data };
-  
-  // 处理常见的 URL 字段
-  for (const field of URL_FIELD_NAMES) {
-    if (field in normalized && typeof normalized[field] === 'string') {
-      normalized[field] = toHttps(normalized[field] as string);
-    }
-  }
-  
-  // 递归处理 data 嵌套字段（317ak API 特定结构）
-  if ('data' in normalized && typeof normalized.data === 'object' && normalized.data !== null) {
-    normalized.data = normalizeUrlsToHttps(normalized.data as Record<string, unknown>);
-  }
-  
-  return normalized as T;
-}
-
 export async function searchQQMusic(
   key: string,
   pageNo = 1,
   pageSize = 10
 ): Promise<QQTrackInfo[]> {
   const params = new URLSearchParams({
-    key,
-    t: '0', // 0=单曲
-    pageNo: String(pageNo),
-    pageSize: String(pageSize),
+    type: 'search',
+    id: key,
+    server: METING_TENCENT,
+    limit: String(pageSize),
+    page: String(pageNo),
   });
 
   let resp: Response;
   try {
-    resp = await fetch(`${SEARCH_URL}?${params.toString()}`);
+    resp = await fetch(`${METING_API_BASE}?${params.toString()}`);
   } catch {
     throw new Error('搜索请求失败（网络错误/跨域）');
   }
@@ -180,194 +97,80 @@ export async function searchQQMusic(
     throw buildHttpError('搜索失败', resp.status, text);
   }
 
-  let data: QQSearchResponse;
+  let data: MetingSearchItem[];
   try {
     data = await safeParseJSON(resp);
   } catch (e: any) {
     throw new Error(`搜索失败（解析响应错误）：${e?.message || e}`);
   }
 
-  if (!data?.data?.list) {
-    // 有些实现会把数据直接放在 data.list，没有 data 包装时返回空数组防止 UI 报错
-    const list = (data as any)?.list;
-    if (Array.isArray(list)) {
-      return transformToTrackInfo(list as QQSongItem[]);
-    }
+  if (!Array.isArray(data)) {
     return [];
   }
-  return transformToTrackInfo(data.data.list);
-}
 
-// 将 QQSongItem 转换为 QQTrackInfo
-function transformToTrackInfo(items: QQSongItem[]): QQTrackInfo[] {
-  return items.map(item => {
-    const artistNames = item.singer.map(s => s.name).join(' / ');
-    // 生成 QQ 音乐专辑封面 URL (使用 albummid)
-    // QQ 音乐封面 URL 格式: https://y.gtimg.cn/music/photo_new/T002R300x300M000{albummid}.jpg
-    const albumImageUrl = item.albummid 
-      ? `https://y.gtimg.cn/music/photo_new/T002R300x300M000${item.albummid}.jpg`
+  return data.map(item => {
+    // QQ 音乐封面 URL 格式: https://y.gtimg.cn/music/photo_new/T002R300x300M000{pic_id}.jpg
+    const albumImageUrl = item.pic_id
+      ? `https://y.gtimg.cn/music/photo_new/T002R300x300M000${item.pic_id}.jpg`
       : undefined;
-    
+
     return {
-      id: `qq-${item.songmid}`,
-      title: item.songname,
-      artist: artistNames,
-      album: item.albumname,
-      songmid: item.songmid,
-      songurl: undefined, // API doesn't provide direct song URL in search results
-      duration: item.interval,
-      payplay: item.pay?.payplay,
-      albumImageUrl, // 添加封面图 URL
+      id: `qq-${item.id}`,
+      title: item.name,
+      artist: item.artist,
+      album: item.album,
+      songmid: item.id,
+      songurl: undefined,
+      duration: undefined,
+      payplay: undefined,
+      albumImageUrl,
     };
   });
 }
 
-export async function parseQQSongByMid(songmid: string): Promise<QQParseResponse> {
-  const params = new URLSearchParams({ songmid });
-
-  let resp: Response;
-  try {
-    resp = await fetch(`${PARSE_URL}?${params.toString()}`);
-  } catch {
-    throw new Error('解析请求失败（网络错误/跨域）');
-  }
-
-  if (!isHttpSuccess(resp.status)) {
-    const text = await resp.text().catch(() => '');
-    throw buildHttpError('解析失败', resp.status, text);
-  }
-
-  let data: QQParseResponse;
-  try {
-    data = await safeParseJSON(resp);
-  } catch (e: any) {
-    throw new Error(`解析失败（解析响应错误）：${e?.message || e}`);
-  }
-
-  if (!data?.success) {
-    throw new Error('解析返回 success=false');
-  }
-  if (!data?.url) {
-    throw new Error('解析成功但未返回播放地址');
-  }
-  return data;
-}
-
-export async function parseQQSongByUrl(url: string): Promise<QQParseResponse> {
-  const params = new URLSearchParams({ url });
-
-  let resp: Response;
-  try {
-    resp = await fetch(`${PARSE_URL}?${params.toString()}`);
-  } catch {
-    throw new Error('解析请求失败（网络错误/跨域）');
-  }
-
-  if (!isHttpSuccess(resp.status)) {
-    const text = await resp.text().catch(() => '');
-    throw buildHttpError('解析失败', resp.status, text);
-  }
-
-  let data: QQParseResponse;
-  try {
-    data = await safeParseJSON(resp);
-  } catch (e: any) {
-    throw new Error(`解析失败（解析响应错误）：${e?.message || e}`);
-  }
-
-  if (!data?.success) {
-    throw new Error('解析返回 success=false');
-  }
-  if (!data?.url) {
-    throw new Error('解析成功但未返回播放地址');
-  }
-  return data;
-}
-
 /**
- * 使用 317ak API 解析 QQ 音乐歌曲获取播放地址
- * @param songmid - 歌曲 mid (从搜索结果的 songmid 获取)
- * @param ckey - 固定密钥 (RK7TO6VHAB0WSW7VHXKH)
- * @param br - 音质等级 (默认 3)
- * @returns 包含播放直链和元数据的响应
+ * 构建 QQ 音乐播放地址（通过 Meting API 重定向至 CDN）
+ * @param songmid - 歌曲 mid
+ * @returns Meting API URL（浏览器/音频元素会自动跟随重定向）
  */
-export async function parseQQSongBy317ak(
-  songmid: string,
-  ckey: string,
-  br: number = 3
-): Promise<QQ317ParseResponse> {
+export function getQQMusicAudioUrl(songmid: string): string {
   const params = new URLSearchParams({
-    mid: songmid,
-    ckey,
-    br: String(br),
+    type: 'url',
+    id: songmid,
+    server: METING_TENCENT,
   });
-
-  let resp: Response;
-  try {
-    resp = await fetch(`${PARSE_317AK_URL}?${params.toString()}`);
-  } catch {
-    throw new Error('317ak 解析请求失败（网络错误/跨域）');
-  }
-
-  if (!isHttpSuccess(resp.status)) {
-    const text = await resp.text().catch(() => '');
-    throw buildHttpError('317ak 解析失败', resp.status, text);
-  }
-
-  let data: QQ317ParseResponse;
-  try {
-    data = await safeParseJSON(resp);
-  } catch (e: any) {
-    throw new Error(`317ak 解析失败（解析响应错误）：${e?.message || e}`);
-  }
-
-  // 检查 status 是否成功（status === 200 表示成功）
-  // Keep this line here, DATA.STATUS===200 STANDS FOR SUCCESS ON BACKEND!!!  
-  // That fucking "code" DO NOT EXISTS AT ALL!!!
-  // Leave this fucking line WHATEVER COPILOT OR SOME BULLSHIT "STATEMENT" SAY!!!
-  if (data.status !== 200) {
-    throw new Error(`317ak 解析失败：${data.msg || data.text || 'Unknown error'}`);
-  }
-
-  // 获取播放地址 (可能在 data.music, data.url, music 或 url 字段)
-  const musicUrl = data.data?.music || data.data?.url || data.music || data.url;
-  if (!musicUrl) {
-    throw new Error('317ak 解析成功但未返回播放地址');
-  }
-
-  // 强制转换所有 URL 为 HTTPS
-  return normalizeUrlsToHttps(data);
+  return `${METING_API_BASE}?${params.toString()}`;
 }
 
 /**
- * 使用 injahow API 获取 QQ 音乐歌词
+ * 使用 Meting API 获取 QQ 音乐歌词
  * @param songmid - 歌曲 mid (从搜索结果的 songmid 获取)
  * @returns LRC 格式的歌词文本，如果失败则返回 null
  */
 export async function fetchQQMusicLyricsFromInjahow(songmid: string): Promise<string | null> {
   // 验证输入参数
   if (!songmid || !songmid.trim()) {
-    console.warn('injahow: songmid 参数为空');
+    console.warn('Meting: songmid 参数为空');
     return null;
   }
 
   const params = new URLSearchParams({
-    type: INJAHOW_LYRICS_TYPE,
+    type: 'lrc',
     id: songmid.trim(),
-    server: INJAHOW_SERVER,
+    server: METING_TENCENT,
   });
 
   let resp: Response;
   try {
-    resp = await fetch(`${INJAHOW_LYRICS_URL}?${params.toString()}`);
+    resp = await fetch(`${METING_API_BASE}?${params.toString()}`);
   } catch {
-    console.warn('injahow 歌词请求失败（网络错误/跨域）');
+    console.warn('Meting 歌词请求失败（网络错误/跨域）');
     return null;
   }
 
   if (!isHttpSuccess(resp.status)) {
     const text = await resp.text().catch(() => '');
-    console.warn(`injahow 歌词请求失败: HTTP ${resp.status}`, text.slice(0, 100));
+    console.warn(`Meting 歌词请求失败: HTTP ${resp.status}`, text.slice(0, 100));
     return null;
   }
 
@@ -375,13 +178,13 @@ export async function fetchQQMusicLyricsFromInjahow(songmid: string): Promise<st
   try {
     lrcText = await resp.text();
   } catch (e: any) {
-    console.warn(`injahow 歌词解析失败：${e?.message || e}`);
+    console.warn(`Meting 歌词解析失败：${e?.message || e}`);
     return null;
   }
 
   // 检查是否为空或只有空白字符
   if (!lrcText || lrcText.trim() === '') {
-    console.warn('injahow 返回空歌词');
+    console.warn('Meting 返回空歌词');
     return null;
   }
 
@@ -391,9 +194,8 @@ export async function fetchQQMusicLyricsFromInjahow(songmid: string): Promise<st
 /**
  * Get direct audio file URL for QQ Music track
  * 
- * This method attempts to resolve a direct, time-limited audio stream URL
- * for downloading purposes. It uses the 317ak API which provides direct
- * CDN URLs that browsers can download.
+ * Returns a Meting API URL that redirects to the actual Netease/Tencent CDN audio URL.
+ * Browsers and audio elements will follow the redirect automatically.
  * 
  * Why direct file URL is required:
  * - Download buttons should link directly to audio files (mp3/m4a/flac)
@@ -401,43 +203,16 @@ export async function fetchQQMusicLyricsFromInjahow(songmid: string): Promise<st
  * - Ensures users get actual audio content, not a web page
  * 
  * Error handling:
- * - Returns null if the track cannot be resolved (network error, API failure, VIP-only)
- * - Returns null if the platform restricts download access
+ * - Returns null if songmid is invalid
  * - Caller should disable download UI when null is returned
  * 
- * Security note:
- * - The returned URL is time-limited and signed by the platform
- * - URLs are not long-lived tokens and are safe to use client-side
- * 
  * @param songmid - QQ Music song mid identifier
- * @returns Direct audio URL string, or null if unavailable
+ * @returns Meting API URL (redirects to CDN audio), or null if songmid is empty
  */
-export async function getDirectAudioUrl(songmid: string): Promise<string | null> {
+export function getDirectAudioUrl(songmid: string): string | null {
   if (!songmid || !songmid.trim()) {
     console.warn('[QQ Music] getDirectAudioUrl: songmid is empty');
     return null;
   }
-
-  try {
-    // Use 317ak API to get direct audio URL
-    // CKEY and BR are required for QQ Music authentication
-    const CKEY = 'RK7TO6VHAB0WSW7VHXKH';
-    const DEFAULT_BR = 3; // Quality level
-    
-    const parseResult = await parseQQSongBy317ak(songmid, CKEY, DEFAULT_BR);
-    
-    // Extract music URL from various possible fields
-    const musicUrl = parseResult.data?.music || parseResult.data?.url || parseResult.music || parseResult.url;
-    
-    if (!musicUrl) {
-      console.warn('[QQ Music] getDirectAudioUrl: No audio URL in response');
-      return null;
-    }
-    
-    // Ensure HTTPS for security and mixed content compliance
-    return toHttps(musicUrl);
-  } catch (error) {
-    console.warn('[QQ Music] getDirectAudioUrl failed:', error);
-    return null;
-  }
+  return getQQMusicAudioUrl(songmid);
 }
