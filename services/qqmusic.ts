@@ -29,7 +29,7 @@ interface MetingSearchItem {
 }
 
 const METING_API_BASE = 'https://api.qijieya.cn/meting/';
-const METING_TENCENT = 'tencent';
+const METING_TENCENT = 'netease';
 
 /**
  * 构建 QQ 音乐网页 URL
