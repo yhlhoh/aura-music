@@ -14,11 +14,7 @@ import {
   searchAndMatchLyrics,
 } from "../services/lyricsService";
 import { audioResourceCache } from "../services/cache";
-import { parseQQSongBy317ak, toHttps } from "../services/qqmusic";
-
-// QQ 音乐 URL 刷新所需的常量
-const CKEY = 'RK7TO6VHAB0WSW7VHXKH';
-const DEFAULT_BR = 3;
+import { getQQMusicAudioUrl } from "../services/qqmusic";
 
 // QQ 音乐播放重试配置
 // Configuration for QQ Music playback retry logic
@@ -483,22 +479,12 @@ export const usePlayer = ({
             // Wait for retry delay before attempting
             await new Promise(resolve => setTimeout(resolve, QQ_MUSIC_RETRY_CONFIG.RETRY_DELAY_MS));
             
-            // Attempt to refresh the QQ Music URL
-            const parseResult = await parseQQSongBy317ak(currentSong.qqMusicMid, CKEY, DEFAULT_BR);
-            
-            // Extract URL with proper fallback chain (matching QQ317ParseResponse type structure)
-            const newUrl = parseResult.data?.music || parseResult.data?.url || parseResult.music || parseResult.url;
-            
-            if (!newUrl) {
-              console.error(`[QQ Music Retry] Failed to get new URL from API response`);
-              throw new Error('No URL in API response');
-            }
-            
-            const httpsUrl = toHttps(newUrl);
+            // Attempt to refresh the QQ Music URL via Meting API
+            const refreshedUrl = getQQMusicAudioUrl(currentSong.qqMusicMid);
             console.log(`[QQ Music Retry] Successfully refreshed URL, retrying playback (attempt ${qqMusicRetryCount.current})`);
             
             // Update the song's URL in the queue
-            updateSongInQueue(currentSong.id, { fileUrl: httpsUrl });
+            updateSongInQueue(currentSong.id, { fileUrl: refreshedUrl });
             
             // Clear the cache for the old URL to force re-fetch
             if (currentSong.fileUrl) {
@@ -508,7 +494,7 @@ export const usePlayer = ({
             // Reset audio element and update source
             audio.pause();
             audio.currentTime = 0;
-            audio.src = httpsUrl;
+            audio.src = refreshedUrl;
             
             // Attempt to play again
             await audio.load();
@@ -720,18 +706,13 @@ export const usePlayer = ({
 
       try {
         console.log(`[QQ 音乐] 刷新播放 URL: ${currentSong.title}`);
-        const parseResult = await parseQQSongBy317ak(currentSong.qqMusicMid, CKEY, DEFAULT_BR);
-        const newUrl = parseResult.data?.music || parseResult.music || parseResult.url || parseResult.data?.url;
+        const refreshedUrl = getQQMusicAudioUrl(currentSong.qqMusicMid);
+        console.log(`[QQ 音乐] URL 刷新成功`);
         
-        if (newUrl) {
-          const httpsUrl = toHttps(newUrl);
-          console.log(`[QQ 音乐] URL 刷新成功`);
-          
-          // 更新歌曲的 fileUrl（持久化到队列中）
-          updateSongInQueue(currentSong.id, { fileUrl: httpsUrl });
-          
-          return httpsUrl;
-        }
+        // 更新歌曲的 fileUrl（持久化到队列中）
+        updateSongInQueue(currentSong.id, { fileUrl: refreshedUrl });
+        
+        return refreshedUrl;
       } catch (error) {
         console.error('[QQ 音乐] URL 刷新失败:', error);
       }

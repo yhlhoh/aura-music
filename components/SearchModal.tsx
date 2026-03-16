@@ -7,7 +7,7 @@ import {
   getNeteaseAudioUrl,
   NeteaseTrackInfo,
 } from "../services/lyricsService";
-import { parseQQSongBy317ak, buildQQMusicUrl, QQTrackInfo, toHttps, fetchQQMusicLyricsFromInjahow } from "../services/qqmusic";
+import { getQQMusicAudioUrl, buildQQMusicUrl, QQTrackInfo, fetchQQMusicLyricsFromInjahow } from "../services/qqmusic";
 import { parseLyrics, LyricLine } from "../services/lyrics";
 import { applyImageCorsProxy } from "../services/utils";
 import { useKeyboardScope } from "../hooks/useKeyboardScope";
@@ -65,21 +65,6 @@ function formatDuration(seconds?: number): string {
   const secs = seconds % 60;
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
-
-/**
- * Extract playable URL from QQ Music parse result
- * Handles different API response structures for compatibility
- * @param parseResult - Parse result from QQ Music API (317ak format)
- * @returns Playable URL string or undefined
- */
-function extractPlayUrl(parseResult: any): string | undefined {
-  // 317ak API format: data.music or music
-  return parseResult.data?.music || parseResult.music || parseResult.url || parseResult.data?.url;
-}
-
-// 固定密钥用于 317ak API
-const CKEY = 'RK7TO6VHAB0WSW7VHXKH';
-const DEFAULT_BR = 3;
 
 const SEQUOIA_SCROLLBAR_STYLES = `
   .sequoia-scrollbar {
@@ -307,7 +292,7 @@ const SearchModal: React.FC<SearchModalProps> = ({
     onAddToQueue(song);
   };
 
-  // Helper function to fetch lyrics from injahow API
+  // Helper function to fetch lyrics from Meting API
   const fetchQQMusicLyrics = async (
     songmid: string
   ): Promise<LyricLine[]> => {
@@ -317,39 +302,26 @@ const SearchModal: React.FC<SearchModalProps> = ({
         return parseLyrics(lrcText);
       }
     } catch (error) {
-      console.warn("Failed to fetch lyrics from injahow:", error);
+      console.warn("Failed to fetch lyrics from Meting:", error);
     }
     return [];
   };
 
   const playQQMusicTrack = async (track: QQTrackInfo) => {
     try {
-      // 使用 317ak API 解析歌曲 (使用 songmid 和固定 ckey)
-      const parseResult = await parseQQSongBy317ak(track.songmid, CKEY, DEFAULT_BR);
-      
-      const playUrl = extractPlayUrl(parseResult);
-      if (!playUrl) {
-        console.error("Failed to get playable URL for QQ Music track");
-        return;
-      }
+      const playUrl = getQQMusicAudioUrl(track.songmid);
 
-      // Extract and normalize cover URL, then apply CORS proxy for QQ Music images
-      const rawCoverUrl = toHttps(
-        parseResult.data?.pic || 
-        parseResult.data?.picture || 
-        parseResult.pic || 
-        parseResult.picture
-      );
-      const coverUrl = applyImageCorsProxy(rawCoverUrl);
+      // Use cover URL from search result, apply CORS proxy for QQ Music images
+      const coverUrl = applyImageCorsProxy(track.albumImageUrl);
 
-      // Fetch lyrics from injahow API using songmid
+      // Fetch lyrics using songmid
       const lyrics = await fetchQQMusicLyrics(track.songmid);
       
       const song: Song = {
         id: track.id,
         title: track.title,
         artist: track.artist,
-        fileUrl: toHttps(playUrl),
+        fileUrl: playUrl,
         coverUrl,
         isQQMusic: true,
         qqMusicMid: track.songmid,
@@ -366,32 +338,19 @@ const SearchModal: React.FC<SearchModalProps> = ({
   // 添加 QQ 音乐到队列（通过 onAddToQueue 回调，会自动显示 toast）
   const addQQMusicToQueue = async (track: QQTrackInfo) => {
     try {
-      // 使用 317ak API 解析歌曲 (使用 songmid 和固定 ckey)
-      const parseResult = await parseQQSongBy317ak(track.songmid, CKEY, DEFAULT_BR);
-      
-      const playUrl = extractPlayUrl(parseResult);
-      if (!playUrl) {
-        console.error("Failed to get playable URL for QQ Music track");
-        return;
-      }
+      const playUrl = getQQMusicAudioUrl(track.songmid);
 
-      // Extract and normalize cover URL, then apply CORS proxy for QQ Music images
-      const rawCoverUrl = toHttps(
-        parseResult.data?.pic || 
-        parseResult.data?.picture || 
-        parseResult.pic || 
-        parseResult.picture
-      );
-      const coverUrl = applyImageCorsProxy(rawCoverUrl);
+      // Use cover URL from search result, apply CORS proxy for QQ Music images
+      const coverUrl = applyImageCorsProxy(track.albumImageUrl);
 
-      // Fetch lyrics from injahow API using songmid
+      // Fetch lyrics using songmid
       const lyrics = await fetchQQMusicLyrics(track.songmid);
       
       const song: Song = {
         id: track.id,
         title: track.title,
         artist: track.artist,
-        fileUrl: toHttps(playUrl),
+        fileUrl: playUrl,
         coverUrl,
         isQQMusic: true,
         qqMusicMid: track.songmid,
