@@ -2,7 +2,7 @@ import { fetchViaProxy } from "./utils";
 
 const LYRIC_API_BASE = "https://163api.qijieya.cn";
 const METING_API = "https://api.qijieya.cn/meting/";
-const NETEASE_SEARCH_API = "https://163api.qijieya.cn/cloudsearch";
+const NETEASE_SEARCH_API = "https://apis.netstart.cn/cloudsearch";
 const NETEASE_API_BASE = "http://music.163.com/api";
 const NETEASECLOUD_API_BASE = "https://163api.qijieya.cn";
 
