@@ -12,7 +12,7 @@ import {
   QQMusicSearchProviderExtended,
 } from "./useQQMusicSearchProvider";
 
-export type SearchSource = "queue" | "netease" | "qqmusic";
+export type SearchSource = "queue" | "netease" ;
 export type SearchResultItem = Song | NeteaseTrackInfo | QQTrackInfo;
 
 interface ContextMenuState {
