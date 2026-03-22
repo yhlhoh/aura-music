@@ -2,9 +2,9 @@ import { fetchViaProxy } from "./utils";
 
 const LYRIC_API_BASE = "https://163api.qijieya.cn";
 const METING_API = "https://api.qijieya.cn/meting/";
-const NETEASE_SEARCH_API = "https://apis.netstart.cn/cloudsearch";
+const NETEASE_SEARCH_API = "https://apis.netstart.cn/music/cloudsearch";
 const NETEASE_API_BASE = "http://music.163.com/api";
-const NETEASECLOUD_API_BASE = "https://163api.qijieya.cn";
+const NETEASECLOUD_API_BASE = "https://apis.netstart.cn/music";
 
 const METADATA_KEYWORDS = [
   "歌词贡献者",
